@@ -1,6 +1,6 @@
 import {useEffect, useState} from 'react'
 import {useNavigate} from 'react-router'
-import {authClient} from '../utils/auth'
+import {authClient} from '@/lib/auth.ts'
 
 export function SignIn() {
     const [email, setEmail] = useState('')
