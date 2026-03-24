@@ -1,10 +1,25 @@
-function App() {
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router'
+import { SignIn } from './pages/SignIn'
+import { Dashboard } from './pages/Dashboard'
+import { ProtectedRoute } from './components/ProtectedRoute'
 
-  return (
-    <div className="h-screen w-full flex flex-col justify-center items-center">
-        <h1 className="text-4xl font-bold text-center tracking-tight">OpenCare Project</h1>
-    </div>
-  )
+function App() {
+    return (
+        <BrowserRouter>
+            <Routes>
+                <Route path="/sign-in" element={<SignIn />} />
+                <Route
+                    path="/dashboard"
+                    element={
+                        <ProtectedRoute>
+                            <Dashboard />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route path="*" element={<Navigate to="/sign-in" replace />} />
+            </Routes>
+        </BrowserRouter>
+    )
 }
 
 export default App
