@@ -5,7 +5,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
     const [status, setStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading')
 
     useEffect(() => {
-        fetch('http://localhost:3000/api/me', { credentials: 'include' })
+        fetch(`${import.meta.env.VITE_BACKEND_URL}/api/me`, { credentials: 'include' })
             .then(res => res.json())
             .then(session => {
                 setStatus(session ? 'authenticated' : 'unauthenticated')
