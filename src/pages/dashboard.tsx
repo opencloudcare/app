@@ -7,12 +7,12 @@ interface DashboardData {
     user: { id: string; email: string; name: string }
 }
 
-export function Dashboard() {
+export function DashboardPage() {
     const [data, setData] = useState<DashboardData | null>(null)
     const navigate = useNavigate()
 
     useEffect(() => {
-        fetch('http://localhost:3000/api/dashboard', { credentials: 'include' })
+        fetch(`${import.meta.env.VITE_BACKEND_URL}/api/dashboard`, { credentials: 'include' })
             .then(res => res.json())
             .then(setData)
     }, [])
