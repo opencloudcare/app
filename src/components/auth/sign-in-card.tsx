@@ -3,7 +3,13 @@ import {useNavigate} from 'react-router'
 import {authClient, validateEmail} from '@/lib/auth.ts'
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card.tsx";
 import {Button} from "@/components/ui/button.tsx";
-import {IconBrandGithub, IconBrandGoogleFilled, IconLoader2, IconTriangleFilled} from "@tabler/icons-react";
+import {
+  IconBrandGithub,
+  IconBrandGoogleFilled,
+  IconLoader2,
+  IconPencilFilled,
+  IconTriangleFilled
+} from "@tabler/icons-react";
 import {Input} from "@/components/ui/input.tsx";
 
 
@@ -84,6 +90,12 @@ export function SignInCard() {
     e.preventDefault()
     setError('')
     setLoading(true)
+
+    if (!password){
+      setError('Please enter your password')
+      setLoading(false)
+      return
+    }
 
     // Calling the correct function depending if a user exists
     const {data, error} = existingUser ? await authClient.signIn.email({
@@ -237,31 +249,46 @@ export function SignInCard() {
 
   // Card component
   return (
-      <Card className="w-full max-w-lg mx-auto rounded-3xl bg-white/75">
-        <CardHeader className="w-full text-center">
-          <CardTitle className="text-xl font-bold">{title[stage]}</CardTitle>
-          <CardDescription>{description[stage]}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-row gap-2 md:gap-4 w-full">
-            <Button disabled={loading} onClick={() => setError("Google OAuth2 currently not available")} variant="outline" className="flex-1 bg-white/90">
-              <IconBrandGoogleFilled/>
-              {loading ? (<IconLoader2 className="animate-spin" /> ) : "Google"}
-            </Button>
-            <Button disabled={loading} onClick={() => setError("Github OAuth2 currently not available")} variant="outline" className="flex-1 bg-white/90">
-              <IconBrandGithub/>
-              {loading ? (<IconLoader2 className="animate-spin" /> ) : "Github"}
-            </Button>
-          </div>
-          <div className="w-full flex flex-row justify-between items-center my-6 gap-4 px-5">
-            <div className="flex-1 w-auto h-px bg-border"></div>
-            <span>or</span>
-            <div className="flex-1 w-auto h-px bg-border"></div>
-          </div>
-          <div>
-            {AuthForm()}  {/* AuthForm generates the form fields needed */}
-          </div>
-        </CardContent>
-      </Card>
+    <Card className="w-full max-w-lg mx-auto rounded-3xl bg-white/75">
+      <CardHeader className="w-full text-center">
+        <CardTitle className="text-xl font-bold">{title[stage]}</CardTitle>
+        <CardDescription>
+          {stage === 2 ? (
+            <>
+            <span>
+                {description[stage]}
+            </span>
+            <br/>
+            <span className="inline-flex items-center gap-1">
+              {email}
+              <IconPencilFilled className="size-4 cursor-pointer" onClick={() => setStage(0)}/>
+            </span>
+            </>
+          ) : description[stage]}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-row gap-2 md:gap-4 w-full">
+          <Button disabled={loading} onClick={() => setError("Google OAuth2 currently not available")} variant="outline"
+                  className="flex-1 bg-white/90">
+            <IconBrandGoogleFilled/>
+            {loading ? (<IconLoader2 className="animate-spin"/>) : "Google"}
+          </Button>
+          <Button disabled={loading} onClick={() => setError("Github OAuth2 currently not available")} variant="outline"
+                  className="flex-1 bg-white/90">
+            <IconBrandGithub/>
+            {loading ? (<IconLoader2 className="animate-spin"/>) : "Github"}
+          </Button>
+        </div>
+        <div className="w-full flex flex-row justify-between items-center my-6 gap-4 px-5">
+          <div className="flex-1 w-auto h-px bg-border"></div>
+          <span>or</span>
+          <div className="flex-1 w-auto h-px bg-border"></div>
+        </div>
+        <div>
+          {AuthForm()} {/* AuthForm generates the form fields needed */}
+        </div>
+      </CardContent>
+    </Card>
   )
 }
