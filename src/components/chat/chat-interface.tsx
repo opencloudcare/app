@@ -9,11 +9,17 @@ const MAX_TEXTAREA_HEIGHT = 256;
 const MIN_TEXTAREA_HEIGHT = 56;
 
 const MOCK_RESPONSES = [
-  "Hello nice to meet you!\nHow are you doing?",
-  "Great to hear. What can I help you with today?",
-  "Uuuh you are making pizza for the first time how exciting.\nLet me give you a hand and write you a recipe.\n" +
-  "You will need:\n- 3 eggs\n- 500ml of milk\n- 1kg of flour\n- toppings",
-  "Your welcome happy to help."
+  // headings + bold + italic
+  "# Welcome to OpenCare\n\nI'm your **AI health assistant**. I can help you with:\n\n## What I can do\n- Answer *general* health questions\n- Summarize your care plan\n- Explain medical terms\n\n> Always consult a qualified healthcare professional for medical advice.",
+
+  // ordered list + inline code + code block
+  "Here are your **top 3 reminders** for today:\n\n1. Take your morning medication (`metformin 500mg`)\n2. Log your blood pressure\n3. Drink at least 8 glasses of water\n\nYou can track these with the following command:\n```bash\nopencare track --today\n```\n\n",
+
+  // table + strikethrough
+  "Here's a summary of your recent vitals:\n\n| Metric | Value | Status |\n|---|---|---|\n| Blood Pressure | 118/76 mmHg | ✅ Normal |\n| Heart Rate | 72 bpm | ✅ Normal |\n| Blood Sugar | 105 mg/dL | ⚠️ Borderline |\n\n~~Your previous reading of 140/90 mmHg~~ has improved significantly.",
+
+  // nested lists + blockquote + bold/italic combo
+  "### Medication Schedule\n\n- **Morning**\n  - Metformin 500mg with breakfast\n  - Vitamin D3 1000 IU\n- **Evening**\n  - Lisinopril 10mg\n  - Aspirin 81mg *(low dose)*\n\n> **Note:** Do not skip doses. If you miss a dose, take it as soon as you remember unless it's almost time for the next one.",
 ]
 
 export const ChatInterface = () => {
@@ -42,7 +48,7 @@ export const ChatInterface = () => {
   }, [send])
 
   return (
-    <div className="bg-background w-full h-full rounded-l-2xl shadow-md border border-border/50 flex flex-col overflow-hidden">
+    <div className="bg-chat-background w-full h-full rounded-l-2xl shadow-md border border-border/50 flex flex-col overflow-hidden">
 
       {/* Header */}
       <div className="px-4 py-3 flex items-center gap-2.5 shrink-0">
