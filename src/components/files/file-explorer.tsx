@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useState} from 'react'
+import React, {useEffect, useMemo, useState} from 'react'
 import {
   IconLoader2,
   IconFolder,
@@ -110,6 +110,8 @@ export function FileExplorer() {
   const [currentPath, setCurrentPath] = useState<string>("/")
   const [showUpload, setShowUpload] = useState(false)
   const [uploadSubfolder, setUploadSubfolder] = useState("")
+  const [uploadQueue, setUploadQueue] = useState<File[]>([])
+  const [uploading, setUploading] = useState(false)
   const [deletedKeys, setDeletedKeys] = useState<Set<string>>(new Set())
   const [previewing, setPreviewing] = useState<Set<string>>(new Set())
   const [previewEntry, setPreviewEntry] = useState<FileEntry | null>(null)
@@ -174,7 +176,7 @@ export function FileExplorer() {
     setDeletedKeys(prev => new Set(prev).add(entry.fullKey))
   }
 
-  const handleUpload = async (file: File) => {
+  const uploadFile = async (file: File) => {
     const normalizedPrefix = currentPath.startsWith('/') ? currentPath.slice(1) : currentPath
     const subfolder = uploadSubfolder.trim().replace(/\/+$/, '')
     const key = subfolder
@@ -187,21 +189,24 @@ export function FileExplorer() {
 
     if (!url) return
 
-    await fetch(url, {
-      method: 'PUT',
-      body: file,
-      headers: {'Content-Type': file.type}
-    })
+    await fetch(url, {method: 'PUT', body: file, headers: {'Content-Type': file.type}})
+  }
 
-    setShowUpload(false)
+  const handleUploadAll = async () => {
+    if (uploadQueue.length === 0) return
+    setUploading(true)
+    for (const file of uploadQueue) {
+      await uploadFile(file)
+    }
+    setUploading(false)
+    setUploadQueue([])
     setUploadSubfolder("")
+    setShowUpload(false)
     fetchFileList()
   }
 
-  console.log("CURRENT PATH: ", currentPath)
-
   return (
-    <div className="flex flex-col flex-1 px-6 pb-6 gap-4">
+    <div className="flex flex-col flex-1 px-6 pb-6 gap-4 max-h-[calc(100vh-40px)]">
 
       {/* Breadcrumb + Upload button */}
       <div className="flex items-center justify-between pt-2">
@@ -217,9 +222,9 @@ export function FileExplorer() {
               </BreadcrumbLink>
             </BreadcrumbItem>
             {breadcrumbs.map((crumb, i) => (
-              <>
-                <BreadcrumbSeparator key={`sep-${i}`} />
-                <BreadcrumbItem key={`crumb-${i}`}>
+              <React.Fragment key={i}>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
                   {i === breadcrumbs.length - 1 ? (
                     <BreadcrumbPage>{crumb}</BreadcrumbPage>
                   ) : (
@@ -231,7 +236,7 @@ export function FileExplorer() {
                     </BreadcrumbLink>
                   )}
                 </BreadcrumbItem>
-              </>
+              </React.Fragment>
             ))}
           </BreadcrumbList>
         </Breadcrumb>
@@ -248,8 +253,9 @@ export function FileExplorer() {
 
       {/* Upload area */}
       {showUpload && (
-        <div className="flex flex-col items-center gap-3 p-5 rounded-xl border border-dashed bg-muted/20">
-          <div className="flex items-center gap-2 w-full max-w-sm">
+        <div className="flex flex-col gap-3 p-5 rounded-xl border border-dashed bg-muted/20">
+          {/* Destination row */}
+          <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground shrink-0">
               {currentPath === '/' || currentPath === '' ? '/' : `/${currentPath.replace(/^\//, '')}`}
             </span>
@@ -260,7 +266,41 @@ export function FileExplorer() {
               className="h-7 text-xs"
             />
           </div>
-          <InputFile onFileSelect={handleUpload} />
+
+          <div className="flex items-start gap-4">
+            <InputFile onFilesSelect={setUploadQueue} />
+
+            {/* Queued file list */}
+            {uploadQueue.length > 0 && (
+              <div className="flex flex-col flex-1 gap-1 min-w-0">
+                <span className="text-xs text-muted-foreground mb-1">{uploadQueue.length} file{uploadQueue.length !== 1 ? 's' : ''} queued</span>
+                <div className="flex flex-col gap-1 max-h-28 overflow-y-auto">
+                {uploadQueue.map((f, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2 px-2 py-1 rounded-lg bg-muted/50 text-xs">
+                    <span className="truncate">{f.name}</span>
+                    <button
+                      onClick={() => setUploadQueue(prev => prev.filter((_, j) => j !== i))}
+                      className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <IconX size={12} />
+                    </button>
+                  </div>
+                ))}
+                </div>
+                <Button
+                  size="sm"
+                  className="mt-1"
+                  onClick={handleUploadAll}
+                  disabled={uploading}
+                >
+                  {uploading
+                    ? <><IconLoader2 size={14} className="animate-spin" /> Uploading...</>
+                    : <><IconUpload size={14} /> Upload {uploadQueue.length} file{uploadQueue.length !== 1 ? 's' : ''}</>
+                  }
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -268,7 +308,7 @@ export function FileExplorer() {
       <div className="flex-1 overflow-y-auto rounded-xl border border-border">
 
         {/* Table header */}
-        <div className="grid grid-cols-[1fr_90px_150px_72px] px-4 py-2 border-b border-border bg-muted/40 text-xs font-medium text-muted-foreground sticky top-0 z-10">
+        <div className="grid grid-cols-[1fr_90px_100px_72px] px-4 py-2 border-b border-border bg-muted/40 text-xs font-medium text-muted-foreground sticky top-0 z-10">
           <span>Name</span>
           <span>Size</span>
           <span>Modified</span>
@@ -291,7 +331,7 @@ export function FileExplorer() {
             {entries.map(entry => (
               <div
                 key={entry.fullKey}
-                className="grid grid-cols-[1fr_90px_150px_72px] px-4 py-2.5 items-center hover:bg-muted/30 transition-colors group border-b border-border/50 last:border-0"
+                className="grid grid-cols-[1fr_90px_100px_72px] px-4 py-2.5 items-center hover:bg-muted/30 transition-colors group border-b border-border/50 last:border-0"
               >
                 {/* Name */}
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -311,7 +351,7 @@ export function FileExplorer() {
                       {entry.name}
                     </Button>
                   ) : (
-                    <span className="text-sm truncate">{entry.name}</span>
+                    <button onClick={() => handlePreview(entry)} className="cursor-pointer hover:underline text-sm truncate">{entry.name}</button>
                   )}
                 </div>
 
