@@ -47,7 +47,7 @@ export function SignInCard() {
     fetch(`${import.meta.env.VITE_BACKEND_URL}/api/me`, {credentials: 'include'})
       .then(res => res.json())
       .then(session => {
-        if (session) {
+        if (session.session) {
           navigate('/dashboard') // redirect to /dashboard
         }
       })
