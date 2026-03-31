@@ -8,7 +8,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
         fetch(`${import.meta.env.VITE_BACKEND_URL}/api/me`, { credentials: 'include' })
             .then(res => res.json())
             .then(session => {
-                setStatus(session ? 'authenticated' : 'unauthenticated')
+                setStatus(session.session ? 'authenticated' : 'unauthenticated')
             })
             .catch(() => setStatus('unauthenticated'))
     }, [])

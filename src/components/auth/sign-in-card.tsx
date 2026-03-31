@@ -23,6 +23,8 @@ export function SignInCard() {
   const [stage, setStage] = useState(0)
   const [existingUser, setExistingUser] = useState<boolean>(false)
   const [error, setError] = useState('')
+  const [googleLoading, setGoogleLoading] = useState<boolean>(false)
+  const [githubLoading, setGithubLoading] = useState<boolean>(false)
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
@@ -50,6 +52,8 @@ export function SignInCard() {
         }
       })
   }, []);
+
+  // TODO: implement the OAUTH logic
 
 
   // Helper function to decide if a user should be signed-in or signed-up
@@ -91,13 +95,7 @@ export function SignInCard() {
     setError('')
     setLoading(true)
 
-    if (!password){
-      setError('Please enter your password')
-      setLoading(false)
-      return
-    }
-
-    // Calling the correct function depending if a user exists
+    // Calling the correct function depending on if a user exists
     const {data, error} = existingUser ? await authClient.signIn.email({
       email,
       password
@@ -269,15 +267,20 @@ export function SignInCard() {
       </CardHeader>
       <CardContent>
         <div className="flex flex-row gap-2 md:gap-4 w-full">
-          <Button disabled={loading} onClick={() => setError("Google OAuth2 currently not available")} variant="outline"
-                  className="flex-1 bg-white/90">
+          <Button disabled={googleLoading} onClick={() => {
+            setError("Google OAuth2 currently not available")
+            setGoogleLoading(true)
+          }} variant="outline" className="flex-1 bg-white/90">
             <IconBrandGoogleFilled/>
-            {loading ? (<IconLoader2 className="animate-spin"/>) : "Google"}
+            {googleLoading ? (<IconLoader2 className="animate-spin"/>) : "Google"}
           </Button>
-          <Button disabled={loading} onClick={() => setError("Github OAuth2 currently not available")} variant="outline"
-                  className="flex-1 bg-white/90">
+          <Button disabled={githubLoading} onClick={() => {
+            setError("Github OAuth2 currently not available")
+            setGithubLoading(true)
+          }} variant="outline" className="flex-1 bg-white/90">
             <IconBrandGithub/>
-            {loading ? (<IconLoader2 className="animate-spin"/>) : "Github"}
+            {githubLoading ? (<IconLoader2 className="animate-spin"/>) : "Github"}
+
           </Button>
         </div>
         <div className="w-full flex flex-row justify-between items-center my-6 gap-4 px-5">
