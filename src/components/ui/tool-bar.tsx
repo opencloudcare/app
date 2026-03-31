@@ -1,33 +1,49 @@
-import {type ReactNode, useCallback, useRef, useState} from "react";
+import React, {type ReactNode, useCallback, useRef, useState} from "react";
 import {cn} from "@/lib/utils.ts";
 import {ChatInterface} from "@/components/chat/chat-interface.tsx";
 import {Button} from "@/components/ui/button.tsx";
-import {IconRobot} from "@tabler/icons-react";
+import {IconBookUpload, IconRobot} from "@tabler/icons-react";
+import {FileExplorer} from "@/components/files/file-explorer.tsx";
 
 type ChatLayoutProps = {
   children: ReactNode
   className?: string
 }
 
+type WindowOptions = "chat" | "fileEx" | "none"
+
 const MIN_WIDTH = 280
 const COLLAPSED_WIDTH = 0
 const TOOLBAR_WIDTH = 36
 
-export const ChatLayout = ({children, className}: ChatLayoutProps) => {
+export const ToolBar = ({children, className}: ChatLayoutProps) => {
   // initialize the variables
-  const [chatWidth, setChatWidth] = useState<number>(512)
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  const [windowWidth, setChatWidth] = useState<number>(512)
   const [isDraggingState, setIsDraggingState] = useState(false)
   const savedWidth = useRef<number>(512)
   const isDragging = useRef<boolean>(false)
   const startX = useRef<number>(0)
   const startWidth = useRef<number>(0)
+  const [activeWindow, setActiveWindow] = useState<WindowOptions>("fileEx")
+
+  const windows = [
+    {
+      name: "chat" as WindowOptions,
+      icon: <IconRobot size={16}/>,
+      component: <ChatInterface/>
+    },
+    {
+      name: "fileEx" as WindowOptions,
+      icon: <IconBookUpload size={16}/>,
+      component: <FileExplorer/>
+    },
+  ]
 
   const handleDragStart = useCallback((e: { clientX: number; }) => {
     isDragging.current = true
     setIsDraggingState(true)
     startX.current = e.clientX // get the current x position
-    startWidth.current = chatWidth // current chatWidth
+    startWidth.current = windowWidth // current windowWidth
 
     const onMouseMove = (e: { clientX: number; }) => {
       if (!isDragging.current) return;
@@ -45,22 +61,12 @@ export const ChatLayout = ({children, className}: ChatLayoutProps) => {
 
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
-  }, [chatWidth])
+  }, [windowWidth])
 
-  const toggleCollapse = useCallback(() => {
-    if (isCollapsed) {
-      setChatWidth(savedWidth.current) // restore the saved width
-      setIsCollapsed(false)
-    } else {
-      savedWidth.current = chatWidth // save the current width before collapsing
-      setChatWidth(COLLAPSED_WIDTH)
-      setIsCollapsed(true)
-    }
-  }, [isCollapsed, chatWidth])
 
   return (
     <div className={cn(
-      "h-full w-full flex flex-row",
+      "h-screen overflow-hidden w-full flex flex-row",
       isDraggingState && "select-none" // don't select text while resizing
     )}>
       {/* Main content */}
@@ -78,7 +84,7 @@ export const ChatLayout = ({children, className}: ChatLayoutProps) => {
       <div
         id="chat"
         style={{
-          width: chatWidth,
+          width: windowWidth,
           transition: isDraggingState ? 'none' : 'width 0.2s ease' // smooth only when toggling, not dragging
         }}
         className={cn(
@@ -86,26 +92,40 @@ export const ChatLayout = ({children, className}: ChatLayoutProps) => {
           isDraggingState && "select-none" // don't select text while resizing
         )}
       >
-        {!isCollapsed && <ChatInterface/>}
+        {windows.filter((w) => w.name === activeWindow).map((window, i) => (
+          <React.Fragment key={i}>{window.component}</React.Fragment>
+        ))}
       </div>
 
       {/* Sidebar toolbar */}
       <div
-        className="flex flex-col justify-start items-center py-3 bg-sidebar border-l border-border/50 p-1"
+        className="flex flex-col justify-start gap-1 items-center py-3 bg-sidebar border-l border-border/50 p-1"
         style={{width: TOOLBAR_WIDTH}}
       >
-        <Button
-          size="icon"
-          onClick={toggleCollapse}
-          variant="ghost"
-          title={isCollapsed ? "Open assistant" : "Close assistant"}
-          className={cn(
-            "size-8 transition-colors duration-300 ease-in-out",
-            !isCollapsed && "bg-gray-200",
-          )}
-        >
-          <IconRobot size={16}/>
-        </Button>
+        {windows.map((window, i) => (
+          <Button
+            size="icon"
+            key={i}
+            onClick={() => {
+              if (window.name === activeWindow) {
+                setActiveWindow("none")
+                savedWidth.current = windowWidth // save the current width before collapsing
+                setChatWidth(COLLAPSED_WIDTH)
+              } else {
+                setActiveWindow(window.name)
+                setChatWidth(savedWidth.current)
+              }
+            }}
+            variant="ghost"
+            title={activeWindow === window.name ? "Close assistant" : "Open assistant"}
+            className={cn(
+              "size-8 transition-colors duration-300 ease-in-out",
+              (activeWindow === window.name) && "bg-gray-200",
+            )}
+          >
+            {window.icon}
+          </Button>
+        ))}
       </div>
     </div>
   );
