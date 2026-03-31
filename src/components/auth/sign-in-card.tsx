@@ -3,7 +3,13 @@ import {useNavigate} from 'react-router'
 import {authClient, validateEmail} from '@/lib/auth.ts'
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card.tsx";
 import {Button} from "@/components/ui/button.tsx";
-import {IconBrandGithub, IconBrandGoogleFilled, IconLoader2, IconTriangleFilled} from "@tabler/icons-react";
+import {
+  IconBrandGithub,
+  IconBrandGoogleFilled,
+  IconLoader2,
+  IconPencilFilled,
+  IconTriangleFilled
+} from "@tabler/icons-react";
 import {Input} from "@/components/ui/input.tsx";
 
 
@@ -244,7 +250,20 @@ export function SignInCard() {
     <Card className="w-full max-w-lg mx-auto rounded-3xl bg-white/75">
       <CardHeader className="w-full text-center">
         <CardTitle className="text-xl font-bold">{title[stage]}</CardTitle>
-        <CardDescription>{description[stage]}</CardDescription>
+        <CardDescription>
+          {stage === 2 ? (
+            <>
+            <span>
+                {description[stage]}
+            </span>
+            <br/>
+            <span className="inline-flex items-center gap-1">
+              {email}
+              <IconPencilFilled className="size-4 cursor-pointer" onClick={() => setStage(0)}/>
+            </span>
+            </>
+          ) : description[stage]}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex flex-row gap-2 md:gap-4 w-full">
@@ -261,6 +280,7 @@ export function SignInCard() {
           }} variant="outline" className="flex-1 bg-white/90">
             <IconBrandGithub/>
             {githubLoading ? (<IconLoader2 className="animate-spin"/>) : "Github"}
+
           </Button>
         </div>
         <div className="w-full flex flex-row justify-between items-center my-6 gap-4 px-5">
