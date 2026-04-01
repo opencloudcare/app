@@ -3,7 +3,7 @@ import {Separator} from "@/components/ui/separator.tsx";
 import {Chat, type Message} from "@/components/chat/chat.tsx";
 import {useCallback, useEffect, useRef, useState} from "react";
 import {Button} from "@/components/ui/button.tsx";
-import {IconArrowUp, IconRobot} from "@tabler/icons-react";
+import {IconArrowUp, IconRobot, IconWorldSearch} from "@tabler/icons-react";
 
 const MAX_TEXTAREA_HEIGHT = 256;
 const MIN_TEXTAREA_HEIGHT = 56;
@@ -14,6 +14,7 @@ export const ChatInterface = () => {
   const [messages, setMessages] = useState<Message[]>([])
   const [isThinking, setIsThinking] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)
+  const [searchWeb, setSearchWeb] = useState(false)
   const firstChunkRef = useRef(true)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const isAtBottomRef = useRef<boolean>(true)
@@ -43,7 +44,8 @@ export const ChatInterface = () => {
       method: "POST",
       credentials: "include",
       body: JSON.stringify({
-        contents: [...messages, userMsg]
+        contents: [...messages, userMsg],
+        searchWeb
       })
     })
     if (!response.ok) {
@@ -146,9 +148,22 @@ export const ChatInterface = () => {
             <IconArrowUp size={14}/>
           </Button>
         </div>
-        <p className="text-xs tracking-tight text-muted-foreground text-center mt-2">
-          We are using LLM/AI model that can make mistakes. Please double-check responses.
-        </p>
+        <div className="flex items-center justify-between mt-2">
+          <button
+            onClick={() => setSearchWeb(prev => !prev)}
+            className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors cursor-pointer ${
+              searchWeb
+                ? "bg-blue-500/10 border-blue-500/40 text-blue-500"
+                : "border-border/60 text-muted-foreground hover:text-foreground hover:border-border"
+            }`}
+          >
+            <IconWorldSearch size={13}/>
+            Web search
+          </button>
+          <p className="text-xs tracking-tight text-muted-foreground">
+            AI can make mistakes. Double-check responses.
+          </p>
+        </div>
       </div>
 
     </div>
