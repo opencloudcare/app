@@ -8,37 +8,50 @@ import {IconArrowUp, IconRobot} from "@tabler/icons-react";
 const MAX_TEXTAREA_HEIGHT = 256;
 const MIN_TEXTAREA_HEIGHT = 56;
 
-const MOCK_RESPONSES = [
-  // headings + bold + italic
-  "# Welcome to OpenCare\n\nI'm your **AI health assistant**. I can help you with:\n\n## What I can do\n- Answer *general* health questions\n- Summarize your care plan\n- Explain medical terms\n\n> Always consult a qualified healthcare professional for medical advice.",
-
-  // ordered list + inline code + code block
-  "Here are your **top 3 reminders** for today:\n\n1. Take your morning medication (`metformin 500mg`)\n2. Log your blood pressure\n3. Drink at least 8 glasses of water\n\nYou can track these with the following command:\n```bash\nopencare track --today\n```\n\n",
-
-  // table + strikethrough
-  "Here's a summary of your recent vitals:\n\n| Metric | Value | Status |\n|---|---|---|\n| Blood Pressure | 118/76 mmHg | ✅ Normal |\n| Heart Rate | 72 bpm | ✅ Normal |\n| Blood Sugar | 105 mg/dL | ⚠️ Borderline |\n\n~~Your previous reading of 140/90 mmHg~~ has improved significantly.",
-
-  // nested lists + blockquote + bold/italic combo
-  "### Medication Schedule\n\n- **Morning**\n  - Metformin 500mg with breakfast\n  - Vitamin D3 1000 IU\n- **Evening**\n  - Lisinopril 10mg\n  - Aspirin 81mg *(low dose)*\n\n> **Note:** Do not skip doses. If you miss a dose, take it as soon as you remember unless it's almost time for the next one.",
-]
-
 export const ChatInterface = () => {
   const chatTitle = "First Chat";
   const [message, setMessage] = useState<string>("")
   const [messages, setMessages] = useState<Message[]>([])
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({behavior: "smooth"})
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight
+    }
   }, [messages])
 
-  const send = useCallback(() => {
+  const send = useCallback(async () => {
     if (!message.trim()) return
-    const userMsg: Message = {role: 'user', content: message}
-    const assistantMsg: Message = {role: 'assistant', content: MOCK_RESPONSES[messages.length / 2 % MOCK_RESPONSES.length]}
-    setMessages(prev => [...prev, userMsg, assistantMsg])
+    const userMsg: Message = {role: "user", content: message}
     setMessage("")
-  }, [message])
+    setMessages(prev => [...prev, userMsg, {role: "model", content: ""}])
+
+    const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/ai/ask`, {
+      headers: {"Content-Type": "application/json"},
+      method: "POST",
+      credentials: "include",
+      body: JSON.stringify({
+        contents: [...messages, userMsg]
+      })
+    })
+    const reader = response.body!.getReader()
+    const decoder = new TextDecoder()
+
+    while (true) {
+      const {done, value} = await reader.read()
+      if (done) break;
+
+      const chunk = decoder.decode(value)
+      setMessages(prev => {
+        const updated = [...prev]
+        updated[updated.length - 1] = {
+          role: "model",
+          content: updated[updated.length - 1].content + chunk
+        }
+        return updated
+      })
+    }
+  }, [message, messages])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -48,7 +61,8 @@ export const ChatInterface = () => {
   }, [send])
 
   return (
-    <div className="bg-chat-background w-full h-full rounded-l-2xl shadow-md border border-border/50 flex flex-col overflow-hidden">
+    <div
+      className="bg-chat-background w-full h-full rounded-l-2xl shadow-md border border-border/50 flex flex-col overflow-hidden">
 
       {/* Header */}
       <div className="px-4 py-3 flex items-center gap-2.5 shrink-0">
@@ -60,7 +74,7 @@ export const ChatInterface = () => {
       <Separator/>
 
       {/* Messages */}
-      <div className="overflow-y-auto flex-1 flex flex-col scrollbar-thin py-2">
+      <div ref={scrollContainerRef} className="overflow-y-auto flex-1 flex flex-col scrollbar-thin py-2">
         {messages.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6 select-none">
             <div className="size-16 rounded-2xl flex items-center justify-center">
@@ -74,10 +88,7 @@ export const ChatInterface = () => {
             </div>
           </div>
         ) : (
-          <>
-            <Chat messages={messages}/>
-            <div ref={bottomRef}/>
-          </>
+          <Chat messages={messages}/>
         )}
       </div>
 

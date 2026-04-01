@@ -6,7 +6,7 @@ import type {Components} from "react-markdown";
 import {oneLight} from "react-syntax-highlighter/dist/esm/styles/prism";
 import {IconCheck, IconCopy} from "@tabler/icons-react";
 
-export type Message = { role: 'user' | 'assistant', content: string }
+export type Message = { role: 'user' | 'model', content: string }
 
 export const Chat = ({messages}: { messages: Message[] }) => {
   return (
