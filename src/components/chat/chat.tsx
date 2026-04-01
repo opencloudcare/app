@@ -8,7 +8,7 @@ import {IconCheck, IconCopy} from "@tabler/icons-react";
 
 export type Message = { role: 'user' | 'model', content: string }
 
-export const Chat = ({messages}: { messages: Message[] }) => {
+export const Chat = ({messages, isThinking, isStreaming}: { messages: Message[], isThinking: boolean, isStreaming: boolean }) => {
   return (
     <div className="mt-auto space-y-4 mb-4 px-3">
       {messages.map((msg, i) => (
@@ -31,9 +31,18 @@ export const Chat = ({messages}: { messages: Message[] }) => {
               prose-code:before:content-none prose-code:after:content-none
               prose-strong:font-semibold
               prose-blockquote:border-l-2 prose-blockquote:border-border prose-blockquote:pl-3 prose-blockquote:text-muted-foreground">
-              <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                {msg.content}
-              </Markdown>
+              {isThinking && i === messages.length - 1 ? (
+                <span className="inline-flex gap-2 items-center">Thinking <ThinkingDots/></span>
+              ) : (
+                <>
+                  <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                    {msg.content}
+                  </Markdown>
+                  {isStreaming && i === messages.length - 1 && (
+                    <span className="inline-block w-0.5 h-3.5 bg-foreground ml-0.5 animate-blink align-middle"/>
+                  )}
+                </>
+              )}
             </div>
           )}
         </React.Fragment>
@@ -82,6 +91,14 @@ const markdownComponents: Components = {
   }
 }
 
+
+const ThinkingDots = () => (
+  <div className="flex items-center gap-1 py-1">
+    <span className="size-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:0ms]"/>
+    <span className="size-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:150ms]"/>
+    <span className="size-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:300ms]"/>
+  </div>
+)
 
 // Copy button component
 const CopyButton = ({code}: { code: string }) => {
