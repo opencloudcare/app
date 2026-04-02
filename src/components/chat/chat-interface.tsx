@@ -7,37 +7,69 @@ import {IconArrowUp, IconRobot, IconWorldSearch} from "@tabler/icons-react";
 
 const MAX_TEXTAREA_HEIGHT = 256;
 const MIN_TEXTAREA_HEIGHT = 56;
+const MIN_SCROLL_HEIGHT_TO_AUTOSCROLL = 25;
 
 export const ChatInterface = () => {
-  const chatTitle = "First Chat";
+  const [chatTitle, setChatTitle] = useState<string>("New Chat")
   const [message, setMessage] = useState<string>("")
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<Message[]>([]) // whole conversation
   const [isThinking, setIsThinking] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)
   const [searchWeb, setSearchWeb] = useState(false)
   const firstChunkRef = useRef(true)
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const isAtBottomRef = useRef<boolean>(true)
+  const scrollContainerRef = useRef<HTMLDivElement>(null) // chat container for autoscroll
+  const isAtBottomRef = useRef<boolean>(true) // check if you are at the bottom of a scrollContainerRef
   const conversationIdRef = useRef<string | null>(null)
+  const [allConversations, setAllConversations] = useState<{id: string, title: string}[] | null>(null);
 
 
+  // Load all conversation on initial render
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_BACKEND_URL}/api/ai/conversations/`, {
+      method: "GET",
+      credentials: "include",
+    }).then(res => res.json()).then(res => setAllConversations(res.data))
+  }, []);
+
+  // Update the end of the chat container and scroll to the bottom if at the bottom
   useEffect(() => {
     if (scrollContainerRef.current && isAtBottomRef.current) {
       scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight
     }
   }, [messages])
 
+
+  // Load a desired conversation based on the conversation id
+  const loadConversation = async (convId: string) => {
+    conversationIdRef.current = convId;
+    setMessages([]) // reset the messages
+    const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/ai/conversations/${convId}`, {
+      method: "GET",
+      credentials: "include",
+    }).then(res => res.json())
+
+    for (const row of response.data){ // iterate through the messages and set the new ones
+      setMessages(prev => [...prev, {role: row.role, content: row.content}])
+    }
+  }
+
+
+  // This one lets you force scroll if you want to read the chat at your own pase and not follow the
+  // stream of content
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current
     if (!el) return;
-    isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 25
+    isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < MIN_SCROLL_HEIGHT_TO_AUTOSCROLL
   }, [])
 
+
+  // SEND MESSAGE FUNCTION
   const send = useCallback(async () => {
     if (!message.trim()) return
     const userMsg: Message = {role: "user", content: message}
     setMessage("")
-    if (messages.length === 0){
+
+    if (messages.length === 0){ // new conversation -> create a new one
       const uuid = crypto.randomUUID();
       conversationIdRef.current = uuid
       const convRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/ai/conversations`, {
@@ -51,10 +83,12 @@ export const ChatInterface = () => {
       })
       if (!convRes.ok) return;
     }
+    // pre-set the message so that the content stream can be inserted
     setMessages(prev => [...prev, userMsg, {role: "model", content: ""}])
     setIsThinking(true)
     firstChunkRef.current = true
 
+    // send the message to LLM
     const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/ai/ask`, {
       headers: {"Content-Type": "application/json"},
       method: "POST",
@@ -65,12 +99,13 @@ export const ChatInterface = () => {
         searchWeb
       })
     })
+
     if (!response.ok) {
-      const errorMsg = response.status === 429
+      const errorMsg = response.status === 429 // -> usage error code
         ? "I'm currently unavailable due to high demand. Please try again in a moment."
         : "Something went wrong. Please try again."
       setIsThinking(false)
-      setMessages(prev => {
+      setMessages(prev => { // show the error message in chat
         const updated = [...prev]
         updated[updated.length - 1] = {role: "model", content: errorMsg}
         return updated
@@ -92,7 +127,7 @@ export const ChatInterface = () => {
       }
 
       const chunk = decoder.decode(value)
-      setMessages(prev => {
+      setMessages(prev => { // stream the response
         const updated = [...prev]
         updated[updated.length - 1] = {
           role: "model",
@@ -104,6 +139,8 @@ export const ChatInterface = () => {
     setIsStreaming(false)
   }, [message, messages])
 
+
+  // Send message by pressing the enter key (filter out enter + shift)
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
@@ -119,6 +156,16 @@ export const ChatInterface = () => {
       <div className="px-4 py-3 flex items-center gap-2.5 shrink-0">
         <div className="flex-1 min-w-0">
           <h1 className="font-semibold text-sm leading-tight truncate">{chatTitle}</h1>
+        </div>
+        <div className="inline-flex items-center gap-1">
+          {allConversations && allConversations.map((conv) => (
+            <Button onClick={() => {
+              loadConversation(conv.id)
+              setChatTitle(conv.title)
+            }} variant="ghost" size="sm" key={conv.id}>
+              {conv.title}
+            </Button>
+          ))}
         </div>
       </div>
 
