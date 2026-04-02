@@ -18,6 +18,8 @@ export const ChatInterface = () => {
   const firstChunkRef = useRef(true)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const isAtBottomRef = useRef<boolean>(true)
+  const conversationIdRef = useRef<string | null>(null)
+
 
   useEffect(() => {
     if (scrollContainerRef.current && isAtBottomRef.current) {
@@ -35,6 +37,20 @@ export const ChatInterface = () => {
     if (!message.trim()) return
     const userMsg: Message = {role: "user", content: message}
     setMessage("")
+    if (messages.length === 0){
+      const uuid = crypto.randomUUID();
+      conversationIdRef.current = uuid
+      const convRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/ai/conversations`, {
+        method: "POST",
+        credentials: "include",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          conversationId: uuid,
+          contents: [userMsg],
+        })
+      })
+      if (!convRes.ok) return;
+    }
     setMessages(prev => [...prev, userMsg, {role: "model", content: ""}])
     setIsThinking(true)
     firstChunkRef.current = true
@@ -44,6 +60,7 @@ export const ChatInterface = () => {
       method: "POST",
       credentials: "include",
       body: JSON.stringify({
+        conversationId: conversationIdRef.current,
         contents: [...messages, userMsg],
         searchWeb
       })
