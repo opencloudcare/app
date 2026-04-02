@@ -37,10 +37,11 @@ export const ChatInterface = () => {
     fetchConversations()
     const savedId = localStorage.getItem("conversationId")
     const savedTitle = localStorage.getItem("conversationTitle")
-    if (savedId) {
-      loadConversation(savedId)
-      if (savedTitle) setChatTitle(savedTitle)
-    }
+    if (!savedId) return;
+    const controller = new AbortController() // abort controller for single conversation retrieval
+    loadConversation(savedId, controller.signal)
+    if (savedTitle) setChatTitle(savedTitle)
+    return () => controller.abort() // when called for the second time set the controller to abort
    }, []);
 
   // Update the end of the chat container and scroll to the bottom if at the bottom
@@ -72,13 +73,16 @@ export const ChatInterface = () => {
   }, [])
 
   // Load a desired conversation based on the conversation id
-  const loadConversation = async (convId: string) => {
+  const loadConversation = async (convId: string, signal?: AbortSignal) => {
     setConversationId(convId);
     setMessages([]) // reset the messages
     const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/ai/conversations/${convId}`, {
       method: "GET",
       credentials: "include",
-    }).then(res => res.json())
+      signal, // when signal.abort() the request gets canceled
+    }).then(res => res.json()).catch(() => null)
+
+    if (!response || signal?.aborted) return;
 
     for (const row of response.data) { // iterate through the messages and set the new ones
       setMessages(prev => [...prev, {role: row.role, content: row.content}])
@@ -171,6 +175,7 @@ export const ChatInterface = () => {
       })
     }
     setIsStreaming(false)
+    setSearchWeb(false) // reset the web search parameter after every response (save on usage)
 
     if (isNewConversation) { // chat title rename functionality
       // generate the new title
