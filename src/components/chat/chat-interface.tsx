@@ -35,7 +35,13 @@ export const ChatInterface = () => {
   // initial conversation load
   useEffect(() => {
     fetchConversations()
-  }, []);
+    const savedId = localStorage.getItem("conversationId")
+    const savedTitle = localStorage.getItem("conversationTitle")
+    if (savedId) {
+      loadConversation(savedId)
+      if (savedTitle) setChatTitle(savedTitle)
+    }
+   }, []);
 
   // Update the end of the chat container and scroll to the bottom if at the bottom
   useEffect(() => {
@@ -43,6 +49,18 @@ export const ChatInterface = () => {
       scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight
     }
   }, [messages])
+
+  // Helper function for saving the conversation id and title in state and local storage
+  const setConversationId = useCallback((id: string | null, title?: string) => {
+    conversationIdRef.current = id
+    if (id) {
+      localStorage.setItem("conversationId", id)
+      if (title) localStorage.setItem("conversationTitle", title)
+    } else {
+      localStorage.removeItem("conversationId")
+      localStorage.removeItem("conversationTitle")
+    }
+  }, [])
 
 
   // Load all conversation
@@ -55,7 +73,7 @@ export const ChatInterface = () => {
 
   // Load a desired conversation based on the conversation id
   const loadConversation = async (convId: string) => {
-    conversationIdRef.current = convId;
+    setConversationId(convId);
     setMessages([]) // reset the messages
     const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/ai/conversations/${convId}`, {
       method: "GET",
@@ -86,7 +104,7 @@ export const ChatInterface = () => {
 
     if (messages.length === 0) { // new conversation -> create a new one
       const uuid = crypto.randomUUID();
-      conversationIdRef.current = uuid
+      setConversationId(uuid)
       const convRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/ai/conversations`, {
         method: "POST",
         credentials: "include",
@@ -164,6 +182,7 @@ export const ChatInterface = () => {
       })
       const title = await titleRes.text()
       setChatTitle(title)
+      setConversationId(conversationIdRef.current, title)
 
       // update the database with a new title
       await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/ai/conversations/${conversationIdRef.current}/title`, {
@@ -195,7 +214,7 @@ export const ChatInterface = () => {
           <h1 className="font-semibold text-sm leading-tight truncate">{chatTitle}</h1>
         </div>
         <button className="cursor-pointer" onClick={() => { // new message button
-          conversationIdRef.current = null
+          setConversationId(null, NEW_CHAT_TITLE)
           setChatTitle(NEW_CHAT_TITLE)
           setMessages([])
         }}>
@@ -215,6 +234,7 @@ export const ChatInterface = () => {
                 <DropdownMenuItem key={conv.id} onClick={() => {
                   loadConversation(conv.id)
                   setChatTitle(conv.title)
+                  setConversationId(conv.id, conv.title)
                 }}>
                   {conv.title}
                 </DropdownMenuItem>
