@@ -82,6 +82,7 @@ export const ChatInterface = () => {
     if (!message.trim()) return
     const userMsg: Message = {role: "user", content: message}
     setMessage("")
+    let isNewConversation = false;
 
     if (messages.length === 0) { // new conversation -> create a new one
       const uuid = crypto.randomUUID();
@@ -96,7 +97,7 @@ export const ChatInterface = () => {
         })
       })
       if (!convRes.ok) return;
-      fetchConversations() // refetch the conversation -> update list
+      isNewConversation = true;
     }
     // pre-set the message so that the content stream can be inserted
     setMessages(prev => [...prev, userMsg, {role: "model", content: ""}])
@@ -152,6 +153,27 @@ export const ChatInterface = () => {
       })
     }
     setIsStreaming(false)
+
+    if (isNewConversation) { // chat title rename functionality
+      // generate the new title
+      const titleRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/ai/get-chat-title`, {
+        method: "POST",
+        credentials: "include",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({contents: [userMsg]})
+      })
+      const title = await titleRes.text()
+      setChatTitle(title)
+
+      // update the database with a new title
+      await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/ai/conversations/${conversationIdRef.current}/title`, {
+        method: "POST",
+        credentials: "include",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({title})
+      })
+      fetchConversations() // refetch the conversation -> update list
+    }
   }, [message, messages])
 
 
@@ -186,17 +208,21 @@ export const ChatInterface = () => {
                     d="M10.001 14.676v-.062c0-2.509 2.017-4.618 4.753-5.233C14.39 7.079 11.96 5.2 8.9 5.2C5.58 5.2 3 7.413 3 9.98c0 .969.36 1.9 1.04 2.698q.048.058.152.165a3.57 3.57 0 0 1 1.002 2.238a3.6 3.6 0 0 1 2.363-.442q.25.039.405.06A7.3 7.3 0 0 0 10 14.676m.457 1.951a9.2 9.2 0 0 1-2.753.055a19 19 0 0 1-.454-.067a1.6 1.6 0 0 0-1.08.212l-1.904 1.147a.8.8 0 0 1-.49.118a.79.79 0 0 1-.729-.851l.15-1.781a1.57 1.57 0 0 0-.439-1.223a6 6 0 0 1-.241-.262C1.563 12.855 1 11.473 1 9.979C1 6.235 4.537 3.2 8.9 3.2c4.06 0 7.403 2.627 7.85 6.008c3.371.153 6.05 2.515 6.05 5.406c0 1.193-.456 2.296-1.229 3.19q-.076.09-.195.21a1.24 1.24 0 0 0-.356.976l.121 1.423a.635.635 0 0 1-.59.68a.66.66 0 0 1-.396-.094l-1.544-.917a1.32 1.32 0 0 0-.874-.169q-.22.034-.368.053q-.475.061-.969.062c-2.694 0-4.998-1.408-5.943-3.401m6.977 1.31a3.3 3.3 0 0 1 1.675.174a3.25 3.25 0 0 1 .842-1.502q.076-.077.106-.112c.489-.565.743-1.213.743-1.883c0-1.805-1.903-3.414-4.4-3.414S12 12.81 12 14.614s1.903 3.414 4.4 3.414a6 6 0 0 0 .714-.046q.121-.015.32-.046"/>
             </svg>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="max-w-60 w-full">
+          <DropdownMenuContent align="end" className="w-80">
             <DropdownMenuLabel>Chat History</DropdownMenuLabel>
             <DropdownMenuGroup>
-              {allConversations && allConversations.map((conv) => (
+              {allConversations && allConversations.length > 0 ? allConversations.map((conv) => (
                 <DropdownMenuItem key={conv.id} onClick={() => {
                   loadConversation(conv.id)
                   setChatTitle(conv.title)
                 }}>
                   {conv.title}
                 </DropdownMenuItem>
-              ))}
+              )) : (
+                <DropdownMenuItem disabled>
+                  <span className="text-xs italic">No previous chats.</span>
+                </DropdownMenuItem>
+              )}
             </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
