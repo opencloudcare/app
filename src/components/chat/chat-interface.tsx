@@ -3,14 +3,23 @@ import {Separator} from "@/components/ui/separator.tsx";
 import {Chat, type Message} from "@/components/chat/chat.tsx";
 import {useCallback, useEffect, useRef, useState} from "react";
 import {Button} from "@/components/ui/button.tsx";
-import {IconArrowUp, IconRobot, IconWorldSearch} from "@tabler/icons-react";
+import {IconArrowUp, IconMessageCirclePlus, IconRobot, IconWorldSearch} from "@tabler/icons-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu.tsx";
 
 const MAX_TEXTAREA_HEIGHT = 256;
 const MIN_TEXTAREA_HEIGHT = 56;
 const MIN_SCROLL_HEIGHT_TO_AUTOSCROLL = 25;
+const NEW_CHAT_TITLE = "New Chat"
 
 export const ChatInterface = () => {
-  const [chatTitle, setChatTitle] = useState<string>("New Chat")
+  const [chatTitle, setChatTitle] = useState<string>(NEW_CHAT_TITLE)
   const [message, setMessage] = useState<string>("")
   const [messages, setMessages] = useState<Message[]>([]) // whole conversation
   const [isThinking, setIsThinking] = useState(false)
@@ -20,15 +29,12 @@ export const ChatInterface = () => {
   const scrollContainerRef = useRef<HTMLDivElement>(null) // chat container for autoscroll
   const isAtBottomRef = useRef<boolean>(true) // check if you are at the bottom of a scrollContainerRef
   const conversationIdRef = useRef<string | null>(null)
-  const [allConversations, setAllConversations] = useState<{id: string, title: string}[] | null>(null);
+  const [allConversations, setAllConversations] = useState<{ id: string, title: string }[] | null>(null);
 
 
-  // Load all conversation on initial render
+  // initial conversation load
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_BACKEND_URL}/api/ai/conversations/`, {
-      method: "GET",
-      credentials: "include",
-    }).then(res => res.json()).then(res => setAllConversations(res.data))
+    fetchConversations()
   }, []);
 
   // Update the end of the chat container and scroll to the bottom if at the bottom
@@ -39,6 +45,14 @@ export const ChatInterface = () => {
   }, [messages])
 
 
+  // Load all conversation
+  const fetchConversations = useCallback(() => {
+    fetch(`${import.meta.env.VITE_BACKEND_URL}/api/ai/conversations/`, {
+      method: "GET",
+      credentials: "include",
+    }).then(res => res.json()).then(res => setAllConversations(res.data))
+  }, [])
+
   // Load a desired conversation based on the conversation id
   const loadConversation = async (convId: string) => {
     conversationIdRef.current = convId;
@@ -48,7 +62,7 @@ export const ChatInterface = () => {
       credentials: "include",
     }).then(res => res.json())
 
-    for (const row of response.data){ // iterate through the messages and set the new ones
+    for (const row of response.data) { // iterate through the messages and set the new ones
       setMessages(prev => [...prev, {role: row.role, content: row.content}])
     }
   }
@@ -69,7 +83,7 @@ export const ChatInterface = () => {
     const userMsg: Message = {role: "user", content: message}
     setMessage("")
 
-    if (messages.length === 0){ // new conversation -> create a new one
+    if (messages.length === 0) { // new conversation -> create a new one
       const uuid = crypto.randomUUID();
       conversationIdRef.current = uuid
       const convRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/ai/conversations`, {
@@ -82,6 +96,7 @@ export const ChatInterface = () => {
         })
       })
       if (!convRes.ok) return;
+      fetchConversations() // refetch the conversation -> update list
     }
     // pre-set the message so that the content stream can be inserted
     setMessages(prev => [...prev, userMsg, {role: "model", content: ""}])
@@ -157,22 +172,41 @@ export const ChatInterface = () => {
         <div className="flex-1 min-w-0">
           <h1 className="font-semibold text-sm leading-tight truncate">{chatTitle}</h1>
         </div>
-        <div className="inline-flex items-center gap-1">
-          {allConversations && allConversations.map((conv) => (
-            <Button onClick={() => {
-              loadConversation(conv.id)
-              setChatTitle(conv.title)
-            }} variant="ghost" size="sm" key={conv.id}>
-              {conv.title}
-            </Button>
-          ))}
-        </div>
+        <button className="cursor-pointer" onClick={() => { // new message button
+          conversationIdRef.current = null
+          setChatTitle(NEW_CHAT_TITLE)
+          setMessages([])
+        }}>
+          <IconMessageCirclePlus size={20} strokeWidth="2.5px"/>
+        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger className="cursor-pointer focus:outline-none">
+            <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"> {/* Chat Icon */}
+              <path fill="var(--color-foreground)"
+                    d="M10.001 14.676v-.062c0-2.509 2.017-4.618 4.753-5.233C14.39 7.079 11.96 5.2 8.9 5.2C5.58 5.2 3 7.413 3 9.98c0 .969.36 1.9 1.04 2.698q.048.058.152.165a3.57 3.57 0 0 1 1.002 2.238a3.6 3.6 0 0 1 2.363-.442q.25.039.405.06A7.3 7.3 0 0 0 10 14.676m.457 1.951a9.2 9.2 0 0 1-2.753.055a19 19 0 0 1-.454-.067a1.6 1.6 0 0 0-1.08.212l-1.904 1.147a.8.8 0 0 1-.49.118a.79.79 0 0 1-.729-.851l.15-1.781a1.57 1.57 0 0 0-.439-1.223a6 6 0 0 1-.241-.262C1.563 12.855 1 11.473 1 9.979C1 6.235 4.537 3.2 8.9 3.2c4.06 0 7.403 2.627 7.85 6.008c3.371.153 6.05 2.515 6.05 5.406c0 1.193-.456 2.296-1.229 3.19q-.076.09-.195.21a1.24 1.24 0 0 0-.356.976l.121 1.423a.635.635 0 0 1-.59.68a.66.66 0 0 1-.396-.094l-1.544-.917a1.32 1.32 0 0 0-.874-.169q-.22.034-.368.053q-.475.061-.969.062c-2.694 0-4.998-1.408-5.943-3.401m6.977 1.31a3.3 3.3 0 0 1 1.675.174a3.25 3.25 0 0 1 .842-1.502q.076-.077.106-.112c.489-.565.743-1.213.743-1.883c0-1.805-1.903-3.414-4.4-3.414S12 12.81 12 14.614s1.903 3.414 4.4 3.414a6 6 0 0 0 .714-.046q.121-.015.32-.046"/>
+            </svg>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="max-w-60 w-full">
+            <DropdownMenuLabel>Chat History</DropdownMenuLabel>
+            <DropdownMenuGroup>
+              {allConversations && allConversations.map((conv) => (
+                <DropdownMenuItem key={conv.id} onClick={() => {
+                  loadConversation(conv.id)
+                  setChatTitle(conv.title)
+                }}>
+                  {conv.title}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <Separator/>
 
       {/* Messages */}
-      <div ref={scrollContainerRef} onScroll={handleScroll} className="overflow-y-auto flex-1 flex flex-col scrollbar-thin py-2">
+      <div ref={scrollContainerRef} onScroll={handleScroll}
+           className="overflow-y-auto flex-1 flex flex-col scrollbar-thin py-2">
         {messages.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6 select-none">
             <div className="size-16 rounded-2xl flex items-center justify-center">
