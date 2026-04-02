@@ -1,4 +1,4 @@
-import React, {type ReactNode, useCallback, useRef, useState} from "react";
+import React, {type ReactNode, useCallback, useEffect, useRef, useState} from "react";
 import {cn} from "@/lib/utils.ts";
 import {ChatInterface} from "@/components/chat/chat-interface.tsx";
 import {Button} from "@/components/ui/button.tsx";
@@ -18,13 +18,27 @@ const TOOLBAR_WIDTH = 36
 
 export const ToolBar = ({children, className}: ChatLayoutProps) => {
   // initialize the variables
-  const [windowWidth, setChatWidth] = useState<number>(512)
+  const [windowWidth, setWindowWidth] = useState<number>(COLLAPSED_WIDTH)
   const [isDraggingState, setIsDraggingState] = useState(false)
   const savedWidth = useRef<number>(512)
   const isDragging = useRef<boolean>(false)
   const startX = useRef<number>(0)
   const startWidth = useRef<number>(0)
-  const [activeWindow, setActiveWindow] = useState<WindowOptions>("chat")
+  const [activeWindow, setActiveWindow] = useState<WindowOptions>("none")
+
+  useEffect(() => {
+    const lastSavedWidth = localStorage.getItem("savedWidth");
+    const lastActiveWindow = localStorage.getItem("activeWindow") as WindowOptions | null;
+
+    if (lastActiveWindow) setActiveWindow(lastActiveWindow);
+    if (lastSavedWidth) {
+      const parsed = parseInt(lastSavedWidth);
+      savedWidth.current = parsed || MIN_WIDTH;
+      if (lastActiveWindow && lastActiveWindow !== "none") {
+        setWindowWidth(parsed);
+      }
+    }
+  }, []);
 
   const windows = [
     {
@@ -49,7 +63,8 @@ export const ToolBar = ({children, className}: ChatLayoutProps) => {
       if (!isDragging.current) return;
       const delta = startX.current - e.clientX // positive = dragging left = chat gets wider
       const newWidth = Math.max(MIN_WIDTH, startWidth.current + delta) // the window cannot be smaller than MIN_WIDTH
-      setChatWidth(newWidth)
+      setWindowWidth(newWidth)
+      localStorage.setItem("savedWidth", newWidth.toString())
     }
 
     const onMouseUp = () => { // remove the listeners
@@ -75,10 +90,12 @@ export const ToolBar = ({children, className}: ChatLayoutProps) => {
       </div>
 
       {/* Drag handle */}
-      <div
-        onMouseDown={handleDragStart}
-        className="w-1 h-full cursor-col-resize">
-      </div>
+      {activeWindow !== "none" && (
+        <div
+          onMouseDown={handleDragStart}
+          className="w-1 h-full cursor-col-resize">
+        </div>
+      )}
 
       {/* Chat panel */}
       <div
@@ -110,10 +127,14 @@ export const ToolBar = ({children, className}: ChatLayoutProps) => {
               if (window.name === activeWindow) {
                 setActiveWindow("none")
                 savedWidth.current = windowWidth // save the current width before collapsing
-                setChatWidth(COLLAPSED_WIDTH)
+                setWindowWidth(COLLAPSED_WIDTH)
+                localStorage.setItem("activeWindow", "none")
+                localStorage.setItem("savedWidth", windowWidth.toString())
               } else {
                 setActiveWindow(window.name)
-                setChatWidth(savedWidth.current)
+                setWindowWidth(savedWidth.current == 0 ? 512 : savedWidth.current)
+                localStorage.setItem("activeWindow", window.name)
+                localStorage.setItem("savedWidth", savedWidth.current === 0 ? "512" : savedWidth.current.toString())
               }
             }}
             variant="ghost"

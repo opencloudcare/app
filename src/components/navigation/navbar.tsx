@@ -46,6 +46,8 @@ export const Navbar = () => {
     // remove items in the local storage
     localStorage.removeItem("conversationId")
     localStorage.removeItem("conversationTitle")
+    localStorage.removeItem("activeWindow")
+    localStorage.removeItem("savedWidth")
     navigate('/sign-in')
   }
 
