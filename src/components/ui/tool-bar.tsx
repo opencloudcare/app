@@ -24,7 +24,7 @@ export const ToolBar = ({children, className}: ChatLayoutProps) => {
   const isDragging = useRef<boolean>(false)
   const startX = useRef<number>(0)
   const startWidth = useRef<number>(0)
-  const [activeWindow, setActiveWindow] = useState<WindowOptions>("fileEx")
+  const [activeWindow, setActiveWindow] = useState<WindowOptions>("chat")
 
   const windows = [
     {
