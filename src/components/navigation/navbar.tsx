@@ -43,6 +43,9 @@ export const Navbar = () => {
 
   async function handleSignOut() {
     await authClient.signOut()
+    // remove items in the local storage
+    localStorage.removeItem("conversationId")
+    localStorage.removeItem("conversationTitle")
     navigate('/sign-in')
   }
 
