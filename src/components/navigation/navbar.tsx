@@ -7,10 +7,9 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu.tsx";
 import {LogOutIcon, SettingsIcon, UserIcon} from "lucide-react";
-import {authClient} from "@/lib/auth.ts";
+import {authClient, type User} from "@/lib/auth.ts";
 import {useNavigate} from "react-router";
 import {useEffect, useState} from "react";
-import type {User} from "better-auth";
 import {Button} from "@/components/ui/button.tsx";
 
 const AVATAR_GRADIENTS = [
@@ -24,7 +23,7 @@ const AVATAR_GRADIENTS = [
   'radial-gradient(circle at 70% 70%, #818cf8, #3b82f6 45%, #1e3a8a)',
 ];
 
-function getAvatarGradient(name: string): string {
+export function getAvatarGradient(name: string): string {
   const index = name.charCodeAt(0) % AVATAR_GRADIENTS.length;
   return AVATAR_GRADIENTS[index];
 }
@@ -63,8 +62,8 @@ export const Navbar = () => {
             <Avatar>
               {/* TODO: add profile picture support */}
               <AvatarImage></AvatarImage>
-              <AvatarFallback style={{ background: getAvatarGradient(user.name) }}>
-                <span className="text-white font-medium text-sm uppercase">{user.name[0]}{user.name.split(" ")[1][0]}</span>
+              <AvatarFallback style={{ background: getAvatarGradient(user.name ?? user.email) }}>
+                <span className="text-white font-medium text-sm uppercase">{user?.firstName[0] ?? ""}{user?.lastName[0] ?? ""}</span>
               </AvatarFallback>
             </Avatar>
             </Button>

@@ -99,7 +99,7 @@ export function SignInCard() {
     const {data, error} = existingUser ? await authClient.signIn.email({
       email,
       password
-    }) : await authClient.signUp.email({email, password, name: firstName + " " + lastName})
+    }) : await authClient.signUp.email({email, password, name: firstName + " " + lastName, firstName, lastName})
 
     setLoading(false)
 
