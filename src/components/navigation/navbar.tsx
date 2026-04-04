@@ -11,6 +11,7 @@ import {authClient, type User} from "@/lib/auth.ts";
 import {useNavigate} from "react-router";
 import {useEffect, useState} from "react";
 import {Button} from "@/components/ui/button.tsx";
+import {ModeToggle} from "@/components/ui/mode-toggle.tsx";
 
 const AVATAR_GRADIENTS = [
   'radial-gradient(circle at 70% 70%, #c026d3, #6366f1 45%, #3730a3)',
@@ -55,7 +56,8 @@ export const Navbar = () => {
   return (
     <nav className="w-full px-3 py-3 inline-flex items-center justify-between">
       <span onClick={() => navigate("/dashboard")} className="cursor-pointer font-semibold tracking-tight" aria-label="link">OpenCare</span>
-      <div className="ml-auto w-fit">
+      <div className="ml-auto w-fit inline-flex gap-4 items-center">
+        <ModeToggle />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="rounded-full">
