@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import {getAvatarGradient} from "@/components/navigation/navbar.tsx";
 import {Tooltip, TooltipContent, TooltipTrigger} from "@/components/ui/tooltip.tsx";
-import {FieldRow} from "@/pages/settings";
 import {
   IconCheck,
   IconMail,
@@ -24,6 +23,7 @@ import {authClient, type User} from "@/lib/auth.ts";
 import {Button} from "@/components/ui/button.tsx";
 import {useEffect, useState} from "react";
 import {InputPlus} from "@/components/ui/input-plus.tsx";
+import {FieldRow} from "@/components/ui/field-row.tsx";
 
 export const PersonalSection = () => {
   const [user, setUser] = useState<User | null>(null)
@@ -141,14 +141,14 @@ export const PersonalSection = () => {
                   <IconPencil size={14}/>
                 </button>
               </AlertDialogTrigger>
-              <AlertDialogContent>
+              <AlertDialogContent size="sm">
                 <AlertDialogHeader>
-                  <AlertDialogMedia>
-                    <IconMail/>
+                  <AlertDialogMedia className="bg-transparent">
+                    <IconMail />
                   </AlertDialogMedia>
                   <AlertDialogTitle className="font-semibold tracking-tight">Change email?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This action will permanently change the email associated with this account.
+                    You are about to change <span className="text-foreground font-medium">{email}</span>. You will need to verify the new address before the change takes effect.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
