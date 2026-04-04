@@ -12,6 +12,7 @@ import {useNavigate} from "react-router";
 import {useEffect, useState} from "react";
 import {Button} from "@/components/ui/button.tsx";
 import {ModeToggle} from "@/components/ui/mode-toggle.tsx";
+import {clearLocalStorage} from "@/components/auth/clear-local-storage.ts";
 
 const AVATAR_GRADIENTS = [
   'radial-gradient(circle at 70% 70%, #c026d3, #6366f1 45%, #3730a3)',
@@ -44,10 +45,7 @@ export const Navbar = () => {
   async function handleSignOut() {
     await authClient.signOut()
     // remove items in the local storage
-    localStorage.removeItem("conversationId")
-    localStorage.removeItem("conversationTitle")
-    localStorage.removeItem("activeWindow")
-    localStorage.removeItem("savedWidth")
+    clearLocalStorage()
     navigate('/sign-in')
   }
 
