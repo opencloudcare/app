@@ -1,10 +1,11 @@
 import React, {useState} from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import {Prism as SyntaxHighlighter} from "react-syntax-highlighter";
 import type {Components} from "react-markdown";
-import {oneLight} from "react-syntax-highlighter/dist/esm/styles/prism";
+import SyntaxHighlighter from "@/components/chat/languages";
+import {oneDark, oneLight} from "react-syntax-highlighter/dist/esm/styles/prism";
 import {IconCheck, IconCopy} from "@tabler/icons-react";
+import {useTheme} from "@/components/ui/theme-provider.tsx";
 
 export type Message = { role: 'user' | 'model', content: string, images?: string[] }
 
@@ -97,44 +98,47 @@ export const Chat = ({messages, isThinking, isStreaming}: { messages: Message[],
   );
 };
 
+const CodeBlock = ({className, children, ...props}: React.ComponentPropsWithoutRef<"code">) => {
+  const {theme} = useTheme()
+  const isDark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches)
+  const match = /language-(\w+)/.exec(className || "")
+  const language = match?.[1]
+
+  if (language) {
+    const code = String(children).replace(/\n$/, "")
+    return (
+      <div className="rounded-lg overflow-hidden border border-border/60 my-2">
+
+        {/* language label bar */}
+        <div className="flex items-center justify-between px-3 pt-1.5 bg-chat-code-background">
+          <span className="text-[10px] font-thin font-mono text-muted-foreground">{language}</span>
+          <CopyButton code={code}/>
+        </div>
+
+        {/* highlighted code */}
+        <SyntaxHighlighter
+          style={{...(isDark ? oneDark : oneLight), 'pre[class*="language-"]': {background: "transparent"}, 'code[class*="language-"]': {background: "transparent"}}}
+          language={language}
+          PreTag="div"
+          customStyle={{margin: 0, borderRadius: 0, fontSize: "0.85rem", padding: "12px" , background: "var(--chat-code-background)"}}
+        >
+          {code}
+        </SyntaxHighlighter>
+      </div>
+    )
+  }
+
+  // inline code block
+  return (
+    <code className="bg-chat-code-background border border-border/60 text-chat-code-foreground font-thin px-1 py-0.5 rounded text-xs font-mono" {...props}>
+      {children}
+    </code>
+  )
+}
+
 // Custom renderer - We can later add override for images and tables if needed
 const markdownComponents: Components = {
-  // override the <code> tag in the Markdown
-  code({className, children, ...props}) {
-    const match = /language-(\w+)/.exec(className || "") // get the language (language-xxx)
-    const language = match?.[1]
-
-    if (language) { // if there is a language to highligh
-      const code = String(children).replace(/\n$/, "")
-      return (
-        <div className="rounded-lg overflow-hidden border border-border/60 my-2">
-
-          {/* language label bar */}
-          <div className="flex items-center justify-between px-3 pt-1.5 bg-chat-code-background">
-            <span className="text-[10px] font-thin font-mono text-muted-foreground">{language}</span>
-            <CopyButton code={code}/>
-          </div>
-
-          {/* highlighted code */}
-          <SyntaxHighlighter
-            style={oneLight} // highlighting theme
-            language={language}
-            PreTag="div"
-            customStyle={{margin: 0, borderRadius: 0, fontSize: "0.85rem", background: "var(--chat-code-background)"}}
-          >
-            {code}
-          </SyntaxHighlighter>
-        </div>
-      )
-    }
-
-    // inline code block
-    return (
-      <code className="bg-chat-code-background border border-border/60 text-chat-code-foreground font-thin px-1 py-0.5 rounded text-xs font-mono" {...props}>
-        {children}
-      </code>
-    )
-  },
+  code: CodeBlock,
   img({src, alt}) {
     if (!src) return null
     return (
