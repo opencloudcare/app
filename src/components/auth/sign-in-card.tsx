@@ -12,6 +12,7 @@ import {
 } from "@tabler/icons-react";
 import {Input} from "@/components/ui/input.tsx";
 
+type SupportedProviders = 'google' | 'github';
 
 export function SignInCard() {
 
@@ -53,8 +54,15 @@ export function SignInCard() {
       })
   }, []);
 
-  // TODO: implement the OAUTH logic
+  const handleOAuthSignIn = async (provider: SupportedProviders) => {
+    provider === "google" ? setGoogleLoading(true) : setGithubLoading(true)
+    await authClient.signIn.social({
+      provider,
+      callbackURL: `${window.location.origin}/dashboard`,
+    })
 
+    provider === "google" ? setGoogleLoading(false) : setGithubLoading(false)
+  }
 
   // Helper function to decide if a user should be signed-in or signed-up
   async function handleSubmit(e: any) {
@@ -267,10 +275,7 @@ export function SignInCard() {
       </CardHeader>
       <CardContent>
         <div className="flex flex-row gap-2 md:gap-4 w-full">
-          <Button disabled={googleLoading} onClick={() => {
-            setError("Google OAuth2 currently not available")
-            setGoogleLoading(true)
-          }} variant="outline" className="flex-1 bg-background/60">
+          <Button disabled={googleLoading} onClick={() => handleOAuthSignIn("google")} variant="outline" className="flex-1 bg-background/60">
             <IconBrandGoogleFilled/>
             {googleLoading ? (<IconLoader2 className="animate-spin"/>) : "Google"}
           </Button>

@@ -60,8 +60,7 @@ export const Navbar = () => {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="rounded-full">
             <Avatar>
-              {/* TODO: add profile picture support */}
-              <AvatarImage></AvatarImage>
+              <AvatarImage src={user.image as string} className="object-cover aspect-square" />
               <AvatarFallback style={{ background: getAvatarGradient(user.name ?? user.email) }}>
                 <span className="text-white font-medium text-sm uppercase">{user?.firstName[0] ?? ""}{user?.lastName[0] ?? ""}</span>
               </AvatarFallback>

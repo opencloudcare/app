@@ -24,6 +24,7 @@ import {Button} from "@/components/ui/button.tsx";
 import {useEffect, useState} from "react";
 import {InputPlus} from "@/components/ui/input-plus.tsx";
 import {FieldRow} from "@/components/ui/field-row.tsx";
+import {Avatar, AvatarFallback, AvatarImage} from "@/components/ui/avatar.tsx";
 
 export const PersonalSection = () => {
   const [user, setUser] = useState<User | null>(null)
@@ -66,20 +67,26 @@ export const PersonalSection = () => {
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({email})
     })
+    if (!response.ok) {
+      setEditEmail(false)
+      setEmail(user.email)
+      console.log(response.text())
+    }
     return response.ok;
-
   }
   return (
     <section>
       <div className="space-y-4">
         {/* Avatar row */}
         <div className="flex items-center gap-4">
-          <div
-            className="size-16 rounded-full flex items-center justify-center text-white text-2xl font-semibold select-none shrink-0"
-            style={{background: getAvatarGradient(user.name)}}
-          >
-            {(firstName[0] ?? "").toUpperCase()}{(lastName[0] ?? "").toUpperCase()}
-          </div>
+          <Avatar className="size-16">
+            <AvatarImage src={user.image as string} className="object-cover aspect-square" />
+            <AvatarFallback
+              className="flex items-center justify-center text-white text-2xl font-semibold select-none shrink-0"
+              style={{background: getAvatarGradient(user.name)}}>
+              {(firstName[0] ?? "").toUpperCase()}{(lastName[0] ?? "").toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-2">
               <Button size="sm" variant="outline" disabled>Update Avatar</Button>
@@ -144,11 +151,12 @@ export const PersonalSection = () => {
               <AlertDialogContent size="sm">
                 <AlertDialogHeader>
                   <AlertDialogMedia className="bg-transparent">
-                    <IconMail />
+                    <IconMail/>
                   </AlertDialogMedia>
                   <AlertDialogTitle className="font-semibold tracking-tight">Change email?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    You are about to change <span className="text-foreground font-medium">{email}</span>. You will need to verify the new address before the change takes effect.
+                    You are about to change <span className="text-foreground font-medium">{email}</span>. You will need
+                    to verify the new address before the change takes effect.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
