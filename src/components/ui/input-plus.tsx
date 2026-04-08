@@ -54,7 +54,7 @@ export const InputPlus = ({className, style, type, processFunction, indicator, c
       <input
         type={type}
         data-slot="input"
-        className={cn("focus:ring-0 focus-visible:ring-0 outline-none", className)}
+        className={cn("w-full focus:ring-0 focus-visible:ring-0 outline-none", className)}
         ref={inputRef}
         {...props}
         onKeyDown={(e) => { handleKeyDown(e); onKeyDown?.(e) }}

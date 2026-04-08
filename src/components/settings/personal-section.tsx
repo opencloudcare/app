@@ -70,7 +70,7 @@ export const PersonalSection = () => {
     if (!response.ok) {
       setEditEmail(false)
       setEmail(user.email)
-      console.log(response.text())
+      console.log(await response.text())
     }
     return response.ok;
   }
