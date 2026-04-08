@@ -12,6 +12,7 @@ import {
 } from "@tabler/icons-react";
 import {Input} from "@/components/ui/input.tsx";
 
+type SupportedProviders = 'google' | 'github';
 
 export function SignInCard() {
 
@@ -53,8 +54,15 @@ export function SignInCard() {
       })
   }, []);
 
-  // TODO: implement the OAUTH logic
+  const handleOAuthSignIn = async (provider: SupportedProviders) => {
+    provider === "google" ? setGoogleLoading(true) : setGithubLoading(true)
+    await authClient.signIn.social({
+      provider,
+      callbackURL: `${window.location.origin}/dashboard`,
+    })
 
+    provider === "google" ? setGoogleLoading(false) : setGithubLoading(false)
+  }
 
   // Helper function to decide if a user should be signed-in or signed-up
   async function handleSubmit(e: any) {
@@ -99,7 +107,7 @@ export function SignInCard() {
     const {data, error} = existingUser ? await authClient.signIn.email({
       email,
       password
-    }) : await authClient.signUp.email({email, password, name: firstName + " " + lastName})
+    }) : await authClient.signUp.email({email, password, name: firstName + " " + lastName, firstName, lastName})
 
     setLoading(false)
 
@@ -116,17 +124,17 @@ export function SignInCard() {
         return (
           <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1">
-              <label htmlFor="email" className="text-sm font-medium text-gray-700">Email address</label>
+              <label htmlFor="email" className="text-sm font-medium bg-transparent text-gray-700 dark:text-foreground">Email address</label>
               <Input
                 id="email"
                 type="email"
                 placeholder="Enter your email address"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                className="bg-white/90"
+                className="bg-background/90"
               />
             </div>
-            {error && <p className="text-red-500 text-sm">{error}</p>}
+            {error && <p className="text-red-500 dark:text-red-400 text-sm">{error}</p>}
             <Button
               type="submit"
               variant="default"
@@ -150,52 +158,52 @@ export function SignInCard() {
             <div className="flex flex-col gap-6">
               <div className="flex flex-row gap-4">
                 <div className="flex flex-col gap-1 justify-start flex-1">
-                  <label htmlFor="firstName" className="text-sm font-medium text-gray-700">First Name</label>
+                  <label htmlFor="firstName" className="text-sm font-medium bg-transparent text-gray-700 dark:text-foreground">First Name</label>
                   <Input
                     id="firstName"
                     type="firstName"
                     placeholder="First Name"
                     value={firstName}
                     onChange={e => setFirstName(e.target.value)}
-                    className="bg-white/90"
+                    className="bg-background/60"
                   />
                 </div>
                 <div className="flex flex-col gap-1 justify-start flex-1">
-                  <label htmlFor="lastName" className="text-sm font-medium text-gray-700">Last Name</label>
+                  <label htmlFor="lastName" className="text-sm font-medium bg-transparent text-gray-700 dark:text-foreground">Last Name</label>
                   <Input
                     id="lastName"
                     type="lastName"
                     placeholder="Last Name"
                     value={lastName}
                     onChange={e => setLastName(e.target.value)}
-                    className="bg-white/90"
+                    className="bg-background/60"
                   />
                 </div>
               </div>
               <div className="flex flex-col gap-1">
-                <label htmlFor="email" className="text-sm font-medium text-gray-700">Email address</label>
+                <label htmlFor="email" className="text-sm font-medium bg-transparent text-gray-700 dark:text-foreground">Email address</label>
                 <Input
                   id="email"
                   type="email"
                   placeholder="Enter your email address"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  className="bg-white/90"
+                  className="bg-background/60"
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label htmlFor="password" className="text-sm font-medium text-gray-700">Password</label>
+                <label htmlFor="password" className="text-sm font-medium bg-transparent text-gray-700 dark:text-foreground">Password</label>
                 <Input
                   id="password"
                   type="password"
                   placeholder="Enter your passwrord"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="bg-white/90"
+                  className="bg-background/60"
                 />
               </div>
             </div>
-            {error && <p className="text-red-500 text-sm">{error}</p>}
+            {error && <p className="text-red-500 dark:text-red-400 text-sm">{error}</p>}
             <Button
               type="submit"
               variant="default"
@@ -215,17 +223,17 @@ export function SignInCard() {
         return (
           <form onSubmit={handleSignIn} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1">
-              <label htmlFor="password" className="text-sm font-medium text-gray-700">Password</label>
+              <label htmlFor="password" className="text-sm font-medium bg-transparent text-gray-700 dark:text-foreground">Password</label>
               <Input
                 id="password"
                 type="password"
                 placeholder="Enter your password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                className="bg-white/90"
+                className="bg-background/60"
               />
             </div>
-            {error && <p className="text-red-500 text-sm">{error}</p>}
+            {error && <p className="text-red-500 dark:text-red-400 text-sm">{error}</p>}
             <Button
               type="submit"
               variant="default"
@@ -247,7 +255,7 @@ export function SignInCard() {
 
   // Card component
   return (
-    <Card className="w-full max-w-lg mx-auto rounded-3xl bg-white/75">
+    <Card className="w-full max-w-lg mx-auto rounded-3xl bg-background/75">
       <CardHeader className="w-full text-center">
         <CardTitle className="text-xl font-bold">{title[stage]}</CardTitle>
         <CardDescription>
@@ -267,17 +275,14 @@ export function SignInCard() {
       </CardHeader>
       <CardContent>
         <div className="flex flex-row gap-2 md:gap-4 w-full">
-          <Button disabled={googleLoading} onClick={() => {
-            setError("Google OAuth2 currently not available")
-            setGoogleLoading(true)
-          }} variant="outline" className="flex-1 bg-white/90">
+          <Button disabled={googleLoading} onClick={() => handleOAuthSignIn("google")} variant="outline" className="flex-1 bg-background/60">
             <IconBrandGoogleFilled/>
             {googleLoading ? (<IconLoader2 className="animate-spin"/>) : "Google"}
           </Button>
           <Button disabled={githubLoading} onClick={() => {
             setError("Github OAuth2 currently not available")
             setGithubLoading(true)
-          }} variant="outline" className="flex-1 bg-white/90">
+          }} variant="outline" className="flex-1 bg-background/60">
             <IconBrandGithub/>
             {githubLoading ? (<IconLoader2 className="animate-spin"/>) : "Github"}
 

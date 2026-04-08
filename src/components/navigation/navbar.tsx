@@ -7,11 +7,12 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu.tsx";
 import {LogOutIcon, SettingsIcon, UserIcon} from "lucide-react";
-import {authClient} from "@/lib/auth.ts";
+import {authClient, type User} from "@/lib/auth.ts";
 import {useNavigate} from "react-router";
 import {useEffect, useState} from "react";
-import type {User} from "better-auth";
 import {Button} from "@/components/ui/button.tsx";
+import {ModeToggle} from "@/components/ui/mode-toggle.tsx";
+import {clearLocalStorage} from "@/components/auth/clear-local-storage.ts";
 
 const AVATAR_GRADIENTS = [
   'radial-gradient(circle at 70% 70%, #c026d3, #6366f1 45%, #3730a3)',
@@ -24,7 +25,7 @@ const AVATAR_GRADIENTS = [
   'radial-gradient(circle at 70% 70%, #818cf8, #3b82f6 45%, #1e3a8a)',
 ];
 
-function getAvatarGradient(name: string): string {
+export function getAvatarGradient(name: string): string {
   const index = name.charCodeAt(0) % AVATAR_GRADIENTS.length;
   return AVATAR_GRADIENTS[index];
 }
@@ -44,8 +45,7 @@ export const Navbar = () => {
   async function handleSignOut() {
     await authClient.signOut()
     // remove items in the local storage
-    localStorage.removeItem("conversationId")
-    localStorage.removeItem("conversationTitle")
+    clearLocalStorage()
     navigate('/sign-in')
   }
 
@@ -54,15 +54,15 @@ export const Navbar = () => {
   return (
     <nav className="w-full px-3 py-3 inline-flex items-center justify-between">
       <span onClick={() => navigate("/dashboard")} className="cursor-pointer font-semibold tracking-tight" aria-label="link">OpenCare</span>
-      <div className="ml-auto w-fit">
+      <div className="ml-auto w-fit inline-flex gap-4 items-center">
+        <ModeToggle />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="rounded-full">
             <Avatar>
-              {/* TODO: add profile picture support */}
-              <AvatarImage></AvatarImage>
-              <AvatarFallback style={{ background: getAvatarGradient(user.name) }}>
-                <span className="text-white font-medium text-sm uppercase">{user.name[0]}{user.name.split(" ")[1][0]}</span>
+              <AvatarImage src={user.image as string} className="object-cover aspect-square" referrerPolicy="no-referrer" />
+              <AvatarFallback style={{ background: getAvatarGradient(user.name ?? user.email) }}>
+                <span className="text-white font-medium text-sm uppercase">{user?.firstName[0] ?? ""}{user?.lastName[0] ?? ""}</span>
               </AvatarFallback>
             </Avatar>
             </Button>

@@ -14,4 +14,17 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router'],
+          'vendor-ui': ['radix-ui', 'class-variance-authority', 'clsx', 'tailwind-merge'],
+          'vendor-icons': ['@tabler/icons-react', 'lucide-react'],
+          'vendor-markdown': ['react-markdown', 'remark-gfm', 'react-syntax-highlighter'],
+          'vendor-auth': ['better-auth'],
+        },
+      },
+    },
+  },
 })
