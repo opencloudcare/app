@@ -1,9 +1,23 @@
 import {createAuthClient} from "better-auth/react";
+import {inferAdditionalFields} from "better-auth/client/plugins";
 
 export const authClient = createAuthClient({
     // baseURL: "http://localhost:3000",
     baseURL: import.meta.env.VITE_BACKEND_URL,
+    plugins: [inferAdditionalFields({
+        user: {
+            firstName: {
+                type: "string",
+                required: true,
+            },
+            lastName: {
+                type: "string",
+                required: true,
+            }
+        }
+    })]
 })
+
 
 // Helper function for validating emails (skipping default form validation)
 export const validateEmail = (email: string) => {
@@ -16,5 +30,7 @@ export const validateEmail = (email: string) => {
     }
 
     return {message: "", valid: true};
-
 }
+
+
+export type User = typeof authClient.$Infer.Session["user"]; // User now has firstName, lastName typed as string
