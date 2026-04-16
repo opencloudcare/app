@@ -23,6 +23,7 @@ import {
 import {InputFile} from "@/components/ui/input-file.tsx";
 import {Button} from "@/components/ui/button.tsx";
 import {Input} from "@/components/ui/input.tsx";
+import type {User} from "better-auth";
 
 interface S3Object {
   Key: string
@@ -57,43 +58,6 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})
 }
 
-function parseEntries(objects: S3Object[], prefix: string): FileEntry[] {
-  const folders = new Set<string>()
-  const files: FileEntry[] = []
-
-  // Normalize: strip any leading slash so it always matches raw S3 keys
-  const normalizedPrefix = prefix.startsWith('/') ? prefix.slice(1) : prefix
-
-  for (const obj of objects) {
-    // Strip the current prefix to get the path relative to this folder
-    if (!obj.Key.startsWith(normalizedPrefix)) continue
-    const relative = obj.Key.slice(normalizedPrefix.length)
-    if (!relative) continue
-
-    const slashIdx = relative.indexOf('/')
-    if (slashIdx !== -1) {
-      // Key lives deeper — record the immediate child folder name
-      folders.add(relative.slice(0, slashIdx))
-    } else {
-      files.push({
-        name: relative,
-        fullKey: obj.Key,
-        type: 'file',
-        size: obj.Size,
-        lastModified: obj.LastModified,
-        fileType: detectFileType(relative),
-      })
-    }
-  }
-
-  const folderEntries: FileEntry[] = Array.from(folders).sort().map(f => ({
-    name: f,
-    fullKey: `${normalizedPrefix}${f}/`,
-    type: 'folder' as const,
-  }))
-
-  return [...folderEntries, ...files.sort((a, b) => a.name.localeCompare(b.name))]
-}
 
 function FileTypeIcon({type, size = 18}: {type: FileEntry['fileType'], size?: number}) {
   switch (type) {
@@ -116,32 +80,45 @@ export function FileExplorer() {
   const [previewing, setPreviewing] = useState<Set<string>>(new Set())
   const [previewEntry, setPreviewEntry] = useState<FileEntry | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [user, setUser] = useState<User | null>(null)
 
-  const fetchFileList = () => {
-    setFileListLoading(true)
-    fetch(`${import.meta.env.VITE_BACKEND_URL}/api/storage/list/opencarebucket`, {credentials: 'include'})
-      .then(res => res.json())
-      .then(result => {
-        setStorageList(result.data ?? [])
-        setFileListLoading(false)
-      })
-      .catch(() => setFileListLoading(false))
-  }
+  const userPrefix = user ? `${user.id}/` : ''
+
+  const displayPath = currentPath === '/' // strip the userId prefix so it never appears in the breadcrumb trail
+    ? ''
+    : currentPath.startsWith(userPrefix)
+      ? currentPath.slice(userPrefix.length)
+      : currentPath
+
+  const breadcrumbs = displayPath ? displayPath.slice(0, -1).split('/').filter(Boolean) : []
+
 
   useEffect(() => {
-    fetchFileList()
+    fetch(`${import.meta.env.VITE_BACKEND_URL}/api/me`, { credentials: "include" })
+      .then(res => res.json())
+      .then(data => setUser(data.user))
   }, [])
 
-  const entries = useMemo(() => {
-    const visible = storageList.filter(obj => !deletedKeys.has(obj.Key))
-    return parseEntries(visible, currentPath)
-  }, [storageList, currentPath, deletedKeys])
+  useEffect(() => {
+    if (user) fetchFileList()
+  }, [user])
 
-  const breadcrumbs = currentPath ? currentPath.slice(0, -1).split('/') : []
+
+const fetchFileList = () => {
+  setFileListLoading(true)
+  if (!user) return
+  fetch(`${import.meta.env.VITE_BACKEND_URL}/api/storage/list/${encodeURIComponent(user.id)}`, {credentials: 'include'})
+    .then(res => res.json())
+    .then(result => {
+      setStorageList(result.data ?? [])
+      setFileListLoading(false)
+    })
+    .catch(() => setFileListLoading(false))
+  }
 
   const navigateToCrumb = (index: number) => {
     const parts = breadcrumbs.slice(0, index + 1)
-    setCurrentPath(parts.join('/') + '/')
+    setCurrentPath(userPrefix + parts.join('/') + '/')
   }
 
   const handlePreview = async (entry: FileEntry) => {
@@ -177,7 +154,9 @@ export function FileExplorer() {
   }
 
   const uploadFile = async (file: File) => {
-    const normalizedPrefix = currentPath.startsWith('/') ? currentPath.slice(1) : currentPath
+    const normalizedPrefix = currentPath === '/'
+      ? userPrefix
+      : currentPath.startsWith('/') ? currentPath.slice(1) : currentPath
     const subfolder = uploadSubfolder.trim().replace(/\/+$/, '')
     const key = subfolder
       ? `${normalizedPrefix}${subfolder}/${file.name}`
@@ -205,6 +184,50 @@ export function FileExplorer() {
     fetchFileList()
   }
 
+  const parseEntries = (objects: S3Object[], prefix: string): FileEntry[] => {
+    const folders = new Set<string>()
+    const files: FileEntry[] = []
+    prefix = prefix === '/' && user ? `${user.id}/` : prefix
+
+    // Normalize: strip any leading slash so it always matches raw S3 keys
+    const normalizedPrefix = prefix.startsWith('/') ? prefix.slice(1) : prefix
+
+    for (const obj of objects) {
+      // Strip the current prefix to get the path relative to this folder
+      if (!obj.Key.startsWith(normalizedPrefix)) continue
+      const relative = obj.Key.slice(normalizedPrefix.length)
+      if (!relative) continue
+
+      const slashIdx = relative.indexOf('/')
+      if (slashIdx !== -1) {
+        // Key lives deeper — record the immediate child folder name
+        folders.add(relative.slice(0, slashIdx))
+      } else {
+        files.push({
+          name: relative,
+          fullKey: obj.Key,
+          type: 'file',
+          size: obj.Size,
+          lastModified: obj.LastModified,
+          fileType: detectFileType(relative),
+        })
+      }
+    }
+
+    const folderEntries: FileEntry[] = Array.from(folders).sort().map(f => ({
+      name: f,
+      fullKey: `${normalizedPrefix}${f}/`,
+      type: 'folder' as const,
+    }))
+
+    return [...folderEntries, ...files.sort((a, b) => a.name.localeCompare(b.name))]
+  }
+
+  const entries = useMemo(() => {
+    const visible = storageList.filter(obj => !deletedKeys.has(obj.Key))
+    return parseEntries(visible, currentPath)
+  }, [storageList, currentPath, deletedKeys])
+
   return (
     <div className="flex flex-col flex-1 px-6 pb-6 gap-4 max-h-[calc(100vh-40px)]">
 
@@ -214,7 +237,7 @@ export function FileExplorer() {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink
-                onClick={() => setCurrentPath("")}
+                onClick={() => setCurrentPath("/")}
                 className="flex items-center gap-1 cursor-pointer"
               >
                 <IconHome size={14} />
@@ -257,7 +280,7 @@ export function FileExplorer() {
           {/* Destination row */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground shrink-0">
-              {currentPath === '/' || currentPath === '' ? '/' : `/${currentPath.replace(/^\//, '')}`}
+              {displayPath ? `/${displayPath}` : '/'}
             </span>
             <Input
               value={uploadSubfolder}
