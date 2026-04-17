@@ -1,15 +1,16 @@
 import React, {useEffect, useMemo, useState} from 'react'
 import {
-  IconLoader2,
-  IconFolder,
-  IconFile,
-  IconFileTypePdf,
-  IconFileTypeDocx,
-  IconPhoto,
-  IconHome,
-  IconUpload,
+  IconAlertTriangle,
   IconEye,
+  IconFile,
+  IconFileTypeDocx,
+  IconFileTypePdf,
+  IconFolder,
+  IconHome,
+  IconLoader2,
+  IconPhoto,
   IconTrash,
+  IconUpload,
   IconX,
 } from "@tabler/icons-react";
 import {
@@ -59,12 +60,16 @@ function formatDate(iso: string): string {
 }
 
 
-function FileTypeIcon({type, size = 18}: {type: FileEntry['fileType'], size?: number}) {
+function FileTypeIcon({type, size = 18}: { type: FileEntry['fileType'], size?: number }) {
   switch (type) {
-    case 'image': return <IconPhoto size={size} className="shrink-0 text-blue-400" />
-    case 'pdf':   return <IconFileTypePdf size={size} className="shrink-0 text-red-500" />
-    case 'doc':   return <IconFileTypeDocx size={size} className="shrink-0 text-blue-600" />
-    default:      return <IconFile size={size} className="shrink-0 text-muted-foreground" />
+    case 'image':
+      return <IconPhoto size={size} className="shrink-0 text-blue-400"/>
+    case 'pdf':
+      return <IconFileTypePdf size={size} className="shrink-0 text-red-500"/>
+    case 'doc':
+      return <IconFileTypeDocx size={size} className="shrink-0 text-blue-600"/>
+    default:
+      return <IconFile size={size} className="shrink-0 text-muted-foreground"/>
   }
 }
 
@@ -82,7 +87,7 @@ export function FileExplorer() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [user, setUser] = useState<User | null>(null)
 
-  const userPrefix = user ? `${user.id}/` : ''
+  const userPrefix = user ? `${user.id}/documents/` : ''
 
   const displayPath = currentPath === '/' // strip the userId prefix so it never appears in the breadcrumb trail
     ? ''
@@ -94,7 +99,7 @@ export function FileExplorer() {
 
 
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_BACKEND_URL}/api/me`, { credentials: "include" })
+    fetch(`${import.meta.env.VITE_BACKEND_URL}/api/me`, {credentials: "include"})
       .then(res => res.json())
       .then(data => setUser(data.user))
   }, [])
@@ -104,16 +109,16 @@ export function FileExplorer() {
   }, [user])
 
 
-const fetchFileList = () => {
-  setFileListLoading(true)
-  if (!user) return
-  fetch(`${import.meta.env.VITE_BACKEND_URL}/api/storage/list/${encodeURIComponent(user.id)}`, {credentials: 'include'})
-    .then(res => res.json())
-    .then(result => {
-      setStorageList(result.data ?? [])
-      setFileListLoading(false)
-    })
-    .catch(() => setFileListLoading(false))
+  const fetchFileList = () => {
+    setFileListLoading(true)
+    if (!user) return
+    fetch(`${import.meta.env.VITE_BACKEND_URL}/api/storage/list/${encodeURIComponent(user.id)}`, {credentials: 'include'})
+      .then(res => res.json())
+      .then(result => {
+        setStorageList(result.data ?? [])
+        setFileListLoading(false)
+      })
+      .catch(() => setFileListLoading(false))
   }
 
   const navigateToCrumb = (index: number) => {
@@ -125,7 +130,7 @@ const fetchFileList = () => {
     setPreviewing(prev => new Set(prev).add(entry.fullKey))
     try {
       const res = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/storage/get/opencarebucket?key=${encodeURIComponent(entry.fullKey)}`,
+        `${import.meta.env.VITE_BACKEND_URL}/api/storage/get?key=${encodeURIComponent(entry.fullKey)}`,
         {credentials: 'include'}
       )
       const {data: url} = await res.json()
@@ -133,7 +138,10 @@ const fetchFileList = () => {
         setPreviewEntry(entry)
         setPreviewUrl(url)
       } else {
-        window.open(url, '_blank')
+        console.error(`.${entry.fileType} files currently not supported for preview.`)
+        setPreviewEntry(entry)
+        setPreviewUrl(url)
+        // window.open(url, '_blank')
       }
     } finally {
       setPreviewing(prev => {
@@ -162,7 +170,7 @@ const fetchFileList = () => {
       ? `${normalizedPrefix}${subfolder}/${file.name}`
       : `${normalizedPrefix}${file.name}`
     const {data: url} = await fetch(
-      `${import.meta.env.VITE_BACKEND_URL}/api/storage/upload?bucket=opencarebucket&key=${encodeURIComponent(key)}`,
+      `${import.meta.env.VITE_BACKEND_URL}/api/storage/upload?key=${encodeURIComponent(key)}`,
       {credentials: 'include'}
     ).then(res => res.json())
 
@@ -187,7 +195,7 @@ const fetchFileList = () => {
   const parseEntries = (objects: S3Object[], prefix: string): FileEntry[] => {
     const folders = new Set<string>()
     const files: FileEntry[] = []
-    prefix = prefix === '/' && user ? `${user.id}/` : prefix
+    prefix = prefix === '/' && user ? userPrefix : prefix
 
     // Normalize: strip any leading slash so it always matches raw S3 keys
     const normalizedPrefix = prefix.startsWith('/') ? prefix.slice(1) : prefix
@@ -240,13 +248,13 @@ const fetchFileList = () => {
                 onClick={() => setCurrentPath("/")}
                 className="flex items-center gap-1 cursor-pointer"
               >
-                <IconHome size={14} />
+                <IconHome size={14}/>
                 Files
               </BreadcrumbLink>
             </BreadcrumbItem>
             {breadcrumbs.map((crumb, i) => (
               <React.Fragment key={i}>
-                <BreadcrumbSeparator />
+                <BreadcrumbSeparator/>
                 <BreadcrumbItem>
                   {i === breadcrumbs.length - 1 ? (
                     <BreadcrumbPage>{crumb}</BreadcrumbPage>
@@ -269,7 +277,7 @@ const fetchFileList = () => {
           size="sm"
           onClick={() => setShowUpload(v => !v)}
         >
-          <IconUpload size={14} />
+          <IconUpload size={14}/>
           Upload
         </Button>
       </div>
@@ -291,24 +299,26 @@ const fetchFileList = () => {
           </div>
 
           <div className="flex items-start gap-4">
-            <InputFile onFilesSelect={setUploadQueue} />
+            <InputFile onFilesSelect={setUploadQueue}/>
 
             {/* Queued file list */}
             {uploadQueue.length > 0 && (
               <div className="flex flex-col flex-1 gap-1 min-w-0">
-                <span className="text-xs text-muted-foreground mb-1">{uploadQueue.length} file{uploadQueue.length !== 1 ? 's' : ''} queued</span>
+                <span
+                  className="text-xs text-muted-foreground mb-1">{uploadQueue.length} file{uploadQueue.length !== 1 ? 's' : ''} queued</span>
                 <div className="flex flex-col gap-1 max-h-28 overflow-y-auto">
-                {uploadQueue.map((f, i) => (
-                  <div key={i} className="flex items-center justify-between gap-2 px-2 py-1 rounded-lg bg-muted/50 text-xs">
-                    <span className="truncate">{f.name}</span>
-                    <button
-                      onClick={() => setUploadQueue(prev => prev.filter((_, j) => j !== i))}
-                      className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <IconX size={12} />
-                    </button>
-                  </div>
-                ))}
+                  {uploadQueue.map((f, i) => (
+                    <div key={i}
+                         className="flex items-center justify-between gap-2 px-2 py-1 rounded-lg bg-muted/50 text-xs">
+                      <span className="truncate">{f.name}</span>
+                      <button
+                        onClick={() => setUploadQueue(prev => prev.filter((_, j) => j !== i))}
+                        className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <IconX size={12}/>
+                      </button>
+                    </div>
+                  ))}
                 </div>
                 <Button
                   size="sm"
@@ -317,8 +327,8 @@ const fetchFileList = () => {
                   disabled={uploading}
                 >
                   {uploading
-                    ? <><IconLoader2 size={14} className="animate-spin" /> Uploading...</>
-                    : <><IconUpload size={14} /> Upload {uploadQueue.length} file{uploadQueue.length !== 1 ? 's' : ''}</>
+                    ? <><IconLoader2 size={14} className="animate-spin"/> Uploading...</>
+                    : <><IconUpload size={14}/> Upload {uploadQueue.length} file{uploadQueue.length !== 1 ? 's' : ''}</>
                   }
                 </Button>
               </div>
@@ -331,22 +341,23 @@ const fetchFileList = () => {
       <div className="flex-1 overflow-y-auto rounded-xl border border-border">
 
         {/* Table header */}
-        <div className="grid grid-cols-[1fr_90px_100px_72px] px-4 py-2 border-b border-border bg-muted/40 text-xs font-medium text-muted-foreground sticky top-0 z-10">
+        <div
+          className="grid grid-cols-[1fr_90px_100px_72px] px-4 py-2 border-b border-border bg-muted/40 text-xs font-medium text-muted-foreground sticky top-0 z-10">
           <span>Name</span>
           <span>Size</span>
           <span>Modified</span>
-          <span />
+          <span/>
         </div>
 
         {fileListLoading ? (
           <div className="flex flex-col gap-px p-3">
             {Array.from({length: 6}).map((_, i) => (
-              <div key={i} className="h-11 rounded-lg bg-muted animate-pulse" />
+              <div key={i} className="h-11 rounded-lg bg-muted animate-pulse"/>
             ))}
           </div>
         ) : entries.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-52 gap-2 text-muted-foreground">
-            <IconFolder size={44} className="opacity-20" />
+            <IconFolder size={44} className="opacity-20"/>
             <p className="text-sm">This folder is empty</p>
           </div>
         ) : (
@@ -359,8 +370,8 @@ const fetchFileList = () => {
                 {/* Name */}
                 <div className="flex items-center gap-2.5 min-w-0">
                   {entry.type === 'folder'
-                    ? <IconFolder size={18} className="shrink-0 text-amber-400" />
-                    : <FileTypeIcon type={entry.fileType} />
+                    ? <IconFolder size={18} className="shrink-0 text-amber-400"/>
+                    : <FileTypeIcon type={entry.fileType}/>
                   }
                   {entry.type === 'folder' ? (
                     <Button
@@ -374,7 +385,8 @@ const fetchFileList = () => {
                       {entry.name}
                     </Button>
                   ) : (
-                    <button onClick={() => handlePreview(entry)} className="cursor-pointer hover:underline text-sm truncate">{entry.name}</button>
+                    <button onClick={() => handlePreview(entry)}
+                            className="cursor-pointer hover:underline text-sm truncate">{entry.name}</button>
                   )}
                 </div>
 
@@ -389,7 +401,8 @@ const fetchFileList = () => {
                 </span>
 
                 {/* Actions */}
-                <div className="flex items-center gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                <div
+                  className="flex items-center gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                   {entry.type === 'file' && (
                     <>
                       <Button
@@ -399,8 +412,8 @@ const fetchFileList = () => {
                         disabled={previewing.has(entry.fullKey)}
                       >
                         {previewing.has(entry.fullKey)
-                          ? <IconLoader2 size={14} className="animate-spin" />
-                          : <IconEye size={14} />
+                          ? <IconLoader2 size={14} className="animate-spin"/>
+                          : <IconEye size={14}/>
                         }
                       </Button>
                       <Button
@@ -409,7 +422,7 @@ const fetchFileList = () => {
                         onClick={() => handleDelete(entry)}
                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       >
-                        <IconTrash size={14} />
+                        <IconTrash size={14}/>
                       </Button>
                     </>
                   )}
@@ -441,11 +454,11 @@ const fetchFileList = () => {
             {/* Modal header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
               <div className="flex items-center gap-2">
-                <FileTypeIcon type={previewEntry.fileType} size={16} />
+                <FileTypeIcon type={previewEntry.fileType} size={16}/>
                 <span className="text-sm font-medium truncate max-w-sm">{previewEntry.name}</span>
               </div>
               <Button variant="ghost" size="icon-sm" onClick={closePreview}>
-                <IconX size={16} />
+                <IconX size={16}/>
               </Button>
             </div>
 
@@ -457,12 +470,32 @@ const fetchFileList = () => {
                   alt={previewEntry.name}
                   className="w-full h-auto object-contain"
                 />
-              ) : (
+              ) : previewEntry.fileType === 'pdf' ? (
                 <iframe
                   src={previewUrl}
                   title={previewEntry.name}
                   className="w-full h-[75vh]"
                 />
+              ) : (
+                <div className="w-full h-[50vh] flex flex-col items-center justify-center gap-4 px-8 py-10">
+                  <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-amber-400/10 border border-amber-400/20">
+                    <IconAlertTriangle size={32} className="text-amber-400"/>
+                  </div>
+                  <div className="flex flex-col items-center gap-1.5 text-center">
+                    <p className="text-sm font-medium text-foreground">Preview not available</p>
+                    <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
+                      Word documents can't be previewed in the browser. Download the file to open it in a compatible application.
+                    </p>
+                  </div>
+                  <a
+                    href={previewUrl}
+                    download={previewEntry.name}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-muted hover:bg-muted/80 text-foreground border border-border transition-colors"
+                  >
+                    <IconFileTypeDocx size={14} className="text-blue-600"/>
+                    Download {previewEntry.name}
+                  </a>
+                </div>
               )}
             </div>
           </div>

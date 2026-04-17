@@ -3,7 +3,14 @@ import {Separator} from "@/components/ui/separator.tsx";
 import {Chat, type Message} from "@/components/chat/chat.tsx";
 import {useCallback, useEffect, useRef, useState} from "react";
 import {Button} from "@/components/ui/button.tsx";
-import {IconArrowUp, IconMessageCirclePlus, IconRobot, IconWorldSearch} from "@tabler/icons-react";
+import {
+  IconArrowUp,
+  IconCheck,
+  IconChevronDown,
+  IconMessageCirclePlus,
+  IconRobot,
+  IconWorldSearch
+} from "@tabler/icons-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +25,15 @@ const MIN_TEXTAREA_HEIGHT = 56;
 const MIN_SCROLL_HEIGHT_TO_AUTOSCROLL = 25;
 const NEW_CHAT_TITLE = "New Chat"
 
+type SupportedModels = "gemma-3-27b-it" | "gemma-4-31b-it" | "gemini-2.5-flash" | "gemini-3-flash-preview"
+
+const MODELS: Record<SupportedModels, string> = {
+  "gemma-3-27b-it": "Gemma 3 27B",
+  "gemma-4-31b-it": "Gemma 4 31B",
+  "gemini-2.5-flash": "Gemini 2.5 Flash",
+  "gemini-3-flash-preview": "Gemini 3 Flash",
+}
+
 export const ChatInterface = () => {
   const [chatTitle, setChatTitle] = useState<string>(NEW_CHAT_TITLE)
   const [message, setMessage] = useState<string>("")
@@ -25,12 +41,22 @@ export const ChatInterface = () => {
   const [isThinking, setIsThinking] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)
   const [searchWeb, setSearchWeb] = useState(false)
+  const [aiModel, setAiModel] = useState<SupportedModels>("gemma-3-27b-it")
   const firstChunkRef = useRef(true)
   const scrollContainerRef = useRef<HTMLDivElement>(null) // chat container for autoscroll
   const isAtBottomRef = useRef<boolean>(true) // check if you are at the bottom of a scrollContainerRef
   const conversationIdRef = useRef<string | null>(null)
   const [allConversations, setAllConversations] = useState<{ id: string, title: string }[] | null>(null);
 
+
+  // fetch preferred model on mount
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_BACKEND_URL}/api/user/ai_preferences`, {credentials: "include"})
+      .then(res => res.json())
+      .then(res => setAiModel(res.data.ai_model ?? "gemma-3-27b-it"))
+      .catch(() => {
+      })
+  }, [])
 
   // initial conversation load
   useEffect(() => {
@@ -42,7 +68,7 @@ export const ChatInterface = () => {
     loadConversation(savedId, controller.signal)
     if (savedTitle) setChatTitle(savedTitle)
     return () => controller.abort() // when called for the second time set the controller to abort
-   }, []);
+  }, []);
 
   // Update the end of the chat container and scroll to the bottom if at the bottom
   useEffect(() => {
@@ -134,7 +160,8 @@ export const ChatInterface = () => {
       body: JSON.stringify({
         conversationId: conversationIdRef.current,
         contents: [...messages, userMsg],
-        searchWeb
+        searchWeb,
+        model: aiModel,
       })
     })
 
@@ -297,24 +324,47 @@ export const ChatInterface = () => {
             <IconArrowUp size={14}/>
           </Button>
         </div>
-        <div className="flex items-center justify-between mt-2">
-          <button
-            onClick={() => setSearchWeb(prev => !prev)}
-            className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors cursor-pointer ${
-              searchWeb
-                ? "bg-blue-500/10 border-blue-500/40 text-blue-500"
-                : "border-border/60 text-muted-foreground hover:text-foreground hover:border-border"
-            }`}
-          >
-            <IconWorldSearch size={13}/>
-            Web search
-          </button>
-          <p className="text-xs tracking-tight text-muted-foreground">
-            AI can make mistakes. Double-check responses.
-          </p>
-        </div>
-      </div>
+        <div className="flex flex-col items-center justify-center mt-2 gap-3 w-full">
+          <div className="flex flex-row justify-between items-center gap-1.5 w-full">
+              <button
+                onClick={() => setSearchWeb(prev => !prev)}
+                className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors cursor-pointer ${
+                  searchWeb
+                    ? "bg-blue-500/10 border-blue-500/40 text-blue-500"
+                    : "border-border/60 text-muted-foreground hover:text-foreground hover:border-border"
+                }`}
+              >
+                <IconWorldSearch size={13}/>
+                Web search
+              </button>
 
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-border/60 text-muted-foreground transition-colors hover:text-foreground hover:border-border cursor-pointer">
+                    {MODELS[aiModel]}
+                    <IconChevronDown size={11}/>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  <DropdownMenuLabel>Model</DropdownMenuLabel>
+                  <DropdownMenuGroup>
+                    {(Object.entries(MODELS) as [SupportedModels, string][]).map(([key, label]) => (
+                      <DropdownMenuItem key={key} onClick={() => setAiModel(key)}
+                                        className="flex items-center justify-between">
+                        {label}
+                        {aiModel === key && <IconCheck size={13} className="text-blue-500"/>}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+        </div>
+        <p className="text-xs tracking-tight text-muted-foreground text-center text-nowrap">
+          AI can make mistakes. Double-check responses.
+        </p>
+      </div>
     </div>
   );
 };
