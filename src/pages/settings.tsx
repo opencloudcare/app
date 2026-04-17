@@ -1,8 +1,10 @@
 import {Separator} from "@/components/ui/separator.tsx"
 import {PersonalSection} from "@/components/settings/personal-section.tsx";
 import {AccountSecurity} from "@/components/settings/account-security.tsx";
+import {AiPreferences} from "@/components/settings/ai-preferences.tsx";
 
 export default function SettingsPage() {
+
 
   return (
     <div className="h-full overflow-y-auto scrollbar-hide">
@@ -14,6 +16,8 @@ export default function SettingsPage() {
         </div>
         <Separator/>
         <PersonalSection/>
+        <Separator/>
+        <AiPreferences />
         <Separator/>
         <AccountSecurity />
         <div className="pb-4"/>
