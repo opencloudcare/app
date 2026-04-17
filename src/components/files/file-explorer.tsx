@@ -87,7 +87,7 @@ export function FileExplorer() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [user, setUser] = useState<User | null>(null)
 
-  const userPrefix = user ? `${user.id}/` : ''
+  const userPrefix = user ? `${user.id}/documents/` : ''
 
   const displayPath = currentPath === '/' // strip the userId prefix so it never appears in the breadcrumb trail
     ? ''
@@ -195,7 +195,7 @@ export function FileExplorer() {
   const parseEntries = (objects: S3Object[], prefix: string): FileEntry[] => {
     const folders = new Set<string>()
     const files: FileEntry[] = []
-    prefix = prefix === '/' && user ? `${user.id}/` : prefix
+    prefix = prefix === '/' && user ? userPrefix : prefix
 
     // Normalize: strip any leading slash so it always matches raw S3 keys
     const normalizedPrefix = prefix.startsWith('/') ? prefix.slice(1) : prefix
