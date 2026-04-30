@@ -25,6 +25,7 @@ import {InputFile} from "@/components/ui/input-file.tsx";
 import {Button} from "@/components/ui/button.tsx";
 import {Input} from "@/components/ui/input.tsx";
 import type {User} from "better-auth";
+import {toast} from "sonner";
 
 interface S3Object {
   Key: string
@@ -159,6 +160,11 @@ export function FileExplorer() {
 
   const handleDelete = (entry: FileEntry) => {
     setDeletedKeys(prev => new Set(prev).add(entry.fullKey))
+    fetch(`${import.meta.env.VITE_BACKEND_URL}/api/storage/delete/${encodeURIComponent(entry.fullKey)}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    })
+
   }
 
   const uploadFile = async (file: File) => {
@@ -169,7 +175,7 @@ export function FileExplorer() {
     const key = subfolder
       ? `${normalizedPrefix}${subfolder}/${file.name}`
       : `${normalizedPrefix}${file.name}`
-    await fetch(
+    const response = await fetch(
       `${import.meta.env.VITE_BACKEND_URL}/api/storage/upload?key=${encodeURIComponent(key)}`,
       {
         credentials: 'include',
@@ -178,6 +184,9 @@ export function FileExplorer() {
         body: file
       }
     )
+    if (!response.ok) {
+      toast.error("Failed to upload file")
+    }
   }
 
   const handleUploadAll = async () => {
