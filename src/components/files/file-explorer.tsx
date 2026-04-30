@@ -169,14 +169,15 @@ export function FileExplorer() {
     const key = subfolder
       ? `${normalizedPrefix}${subfolder}/${file.name}`
       : `${normalizedPrefix}${file.name}`
-    const {data: url} = await fetch(
+    await fetch(
       `${import.meta.env.VITE_BACKEND_URL}/api/storage/upload?key=${encodeURIComponent(key)}`,
-      {credentials: 'include'}
-    ).then(res => res.json())
-
-    if (!url) return
-
-    await fetch(url, {method: 'PUT', body: file, headers: {'Content-Type': file.type}})
+      {
+        credentials: 'include',
+        method: 'PUT',
+        headers: {'Content-Type': file.type},
+        body: file
+      }
+    )
   }
 
   const handleUploadAll = async () => {
@@ -478,13 +479,15 @@ export function FileExplorer() {
                 />
               ) : (
                 <div className="w-full h-[50vh] flex flex-col items-center justify-center gap-4 px-8 py-10">
-                  <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-amber-400/10 border border-amber-400/20">
+                  <div
+                    className="flex items-center justify-center w-16 h-16 rounded-2xl bg-amber-400/10 border border-amber-400/20">
                     <IconAlertTriangle size={32} className="text-amber-400"/>
                   </div>
                   <div className="flex flex-col items-center gap-1.5 text-center">
                     <p className="text-sm font-medium text-foreground">Preview not available</p>
                     <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
-                      Word documents can't be previewed in the browser. Download the file to open it in a compatible application.
+                      Word documents can't be previewed in the browser. Download the file to open it in a compatible
+                      application.
                     </p>
                   </div>
                   <a

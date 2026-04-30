@@ -1,4 +1,4 @@
-import React, {useRef, useState} from 'react'
+import React, {useEffect, useRef, useState} from 'react'
 import {IconUpload, IconPhoto, IconX, IconFile, IconFileTypePdf, IconFileTypeDocx} from "@tabler/icons-react";
 
 interface InputFileProps {
@@ -21,13 +21,13 @@ export const InputFile = ({onFilesSelect}: InputFileProps) => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [dragging, setDragging] = useState(false)
 
+  useEffect(() => {
+    onFilesSelect(selectedFiles)
+  }, [selectedFiles])
+
   const addFiles = (incoming: FileList) => {
     const newFiles = Array.from(incoming)
-    setSelectedFiles(prev => {
-      const merged = [...prev, ...newFiles.filter(f => !prev.some(p => p.name === f.name))]
-      onFilesSelect(merged)
-      return merged
-    })
+    setSelectedFiles(prev => [...prev, ...newFiles.filter(f => !prev.some(p => p.name === f.name))])
   }
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,7 +43,6 @@ export const InputFile = ({onFilesSelect}: InputFileProps) => {
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation()
     setSelectedFiles([])
-    onFilesSelect([])
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
