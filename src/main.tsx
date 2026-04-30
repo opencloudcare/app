@@ -4,10 +4,12 @@ import './index.css'
 import App from './app.tsx'
 import {TooltipProvider} from "@/components/ui/tooltip.tsx";
 import {ThemeProvider} from "@/components/ui/theme-provider.tsx";
+import {Toaster} from "sonner";
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+      <Toaster richColors />
       <TooltipProvider>
         <App/>
       </TooltipProvider>
