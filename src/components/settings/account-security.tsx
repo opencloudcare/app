@@ -8,16 +8,50 @@ import {
   IconBrandGithub,
   IconBrandGoogleFilled,
   IconCheck,
+  IconEyeOff,
   IconLoader2,
-  IconShieldLock
+  IconShieldLock,
+  IconX
 } from "@tabler/icons-react";
 import {Separator} from "@/components/ui/separator.tsx";
 import {authClient} from "@/lib/auth.ts";
-import {useEffect, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 
 export const AccountSecurity = () => {
   const [loading, setLoading] = useState(false);
-  const [credentials, setCredentials] = useState<{providerId: string}[]>([])
+  const [credentials, setCredentials] = useState<{ providerId: string }[]>([])
+
+  const [hiddenInfo, setHiddenInfo] = useState<string[]>([])
+  const [newTerm, setNewTerm] = useState("")
+  const [savingHidden, setSavingHidden] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_BACKEND_URL}/api/user/hidden-data`, {
+      credentials: "include",
+    }).then(res => res.json()).then(res => setHiddenInfo(res.data.data)) // data from db and data field on that data
+  }, []);
+
+  const addTerm = (term: string) => {
+    if (!term || hiddenInfo.includes(term)) return
+    setHiddenInfo((prev) => [...prev, term])
+    setNewTerm("")
+  }
+
+  const removeTerm = (term: string) => {
+    setHiddenInfo(hiddenInfo.filter((item) => item !== term))
+  }
+
+  const handleHiddenDataSave = async () => {
+    setSavingHidden(true)
+    await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/user/hidden-data`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({data: hiddenInfo}),
+      credentials: "include",
+    })
+    setSavingHidden(false)
+  }
 
   const handleLinkAccount = async () => {
     setLoading(true);
@@ -49,10 +83,51 @@ export const AccountSecurity = () => {
       if (!session?.data?.user) return
       getCredentials(session.data.user.id)
     })
-  },[])
+  }, [])
 
   return (
     <section>
+      <SectionHeader
+        icon={<IconEyeOff size={16} className="text-muted-foreground"/>}
+        title="Personal Information"
+        description="Terms to automatically redact from uploaded documents."
+      />
+      <div className="space-y-3 mb-6">
+        <div className="rounded-xl border border-border/50 bg-card px-4 py-3 space-y-3">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Redacted terms</p>
+          {hiddenInfo.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {hiddenInfo.map((term) => (
+                <span key={term}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-border/50 bg-muted/40 px-2.5 py-1 text-xs font-medium">
+                  {term}
+                  <button onClick={() => removeTerm(term)}
+                          className="text-muted-foreground hover:text-foreground transition-colors">
+                    <IconX size={12}/>
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Input
+              ref={inputRef}
+              value={newTerm}
+              onChange={e => setNewTerm(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && addTerm(newTerm.trim())}
+              placeholder="e.g. John Doe, 01/01/1990"
+              className="h-8 text-sm"
+            />
+            <Button size="sm" variant="outline" onClick={() => addTerm(newTerm.trim())}
+                    disabled={!newTerm.trim()}>Add</Button>
+          </div>
+          <div className="flex justify-end pt-1">
+            <Button size="sm" onClick={handleHiddenDataSave} disabled={savingHidden}>
+              {savingHidden ? <IconLoader2 className="animate-spin"/> : "Save"}
+            </Button>
+          </div>
+        </div>
+      </div>
       <SectionHeader
         icon={<IconShieldLock size={16} className="text-muted-foreground"/>}
         title="Account & Security"
@@ -70,12 +145,13 @@ export const AccountSecurity = () => {
               <IconBrandGoogleFilled size={18}/>
               <div>
                 <p className="text-sm font-medium">Google</p>
-                <p className="text-xs text-muted-foreground">{credentials.some(c => c.providerId === "google") ? "Connected" : "Not connected"}</p>
+                <p
+                  className="text-xs text-muted-foreground">{credentials.some(c => c.providerId === "google") ? "Connected" : "Not connected"}</p>
               </div>
             </div>
             {credentials.some(c => c.providerId === "google") ? (
-              <IconCheck size={16} className="text-emerald-500" />
-              ):(
+              <IconCheck size={16} className="text-emerald-500"/>
+            ) : (
               <Button size="sm" variant="outline" disabled={loading} onClick={handleLinkAccount}>
                 {loading ?
                   <IconLoader2 className="animate-spin"/> : "Connect"}
