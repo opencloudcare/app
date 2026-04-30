@@ -29,7 +29,7 @@ export const AccountSecurity = () => {
   useEffect(() => {
     fetch(`${import.meta.env.VITE_BACKEND_URL}/api/user/hidden-data`, {
       credentials: "include",
-    }).then(res => res.json()).then(res => setHiddenInfo(res.data.data)) // data from db and data field on that data
+    }).then(res => res.json()).then(res => setHiddenInfo(res.data))
   }, []);
 
   const addTerm = (term: string) => {
