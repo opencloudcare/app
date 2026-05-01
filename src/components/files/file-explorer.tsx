@@ -44,9 +44,9 @@ interface FileEntry {
 
 function detectFileType(name: string): FileEntry['fileType'] {
   const ext = name.split('.').pop()?.toLowerCase() ?? ''
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(ext)) return 'image'
+  if (['jpg', 'jpeg', 'png', 'bmp', 'gif', 'tiff', 'tif', 'pnm', 'pgm', 'pbm', 'ppm', 'pam', 'jxr', 'jp2', 'jpx', 'psd', 'svg'].includes(ext)) return 'image'
   if (ext === 'pdf') return 'pdf'
-  if (['doc', 'docx', 'odt', 'rtf'].includes(ext)) return 'doc'
+  if (['epub', 'mobi', 'fb2', 'cbz', 'xps', 'txt'].includes(ext)) return 'doc'
   return 'other'
 }
 
