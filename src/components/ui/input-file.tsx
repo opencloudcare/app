@@ -5,7 +5,7 @@ interface InputFileProps {
   onFilesSelect: (files: File[]) => void
 }
 
-function getFileIcon(name: string) {
+export function getFileIcon(name: string) {
   const ext = name.split('.').pop()?.toLowerCase() ?? ''
   if (['jpg', 'jpeg', 'png', 'bmp', 'gif', 'tiff', 'tif', 'pnm', 'pgm', 'pbm', 'ppm', 'pam', 'jxr', 'jp2', 'jpx', 'psd', 'svg'].includes(ext))
     return <IconPhoto size={24} className="text-blue-400" />

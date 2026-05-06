@@ -1,7 +1,7 @@
 import {Textarea} from "@/components/ui/textarea.tsx";
 import {Separator} from "@/components/ui/separator.tsx";
 import {Chat, type Message} from "@/components/chat/chat.tsx";
-import {useCallback, useEffect, useRef, useState} from "react";
+import React, {useCallback, useEffect, useRef, useState} from "react";
 import {Button} from "@/components/ui/button.tsx";
 import {
   IconArrowUp,
@@ -9,7 +9,9 @@ import {
   IconChevronDown,
   IconMessageCirclePlus,
   IconRobot,
-  IconWorldSearch
+  IconUpload,
+  IconWorldSearch,
+  IconX,
 } from "@tabler/icons-react";
 import {
   DropdownMenu,
@@ -19,9 +21,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu.tsx";
+import {getFileIcon} from "@/components/ui/input-file.tsx"
+import {detectFileType, type FileEntry} from "@/components/files/file-explorer.tsx";
+import type {User} from "better-auth";
 
 const MAX_TEXTAREA_HEIGHT = 256;
-const MIN_TEXTAREA_HEIGHT = 56;
+const MIN_TEXTAREA_HEIGHT = 80;
 const MIN_SCROLL_HEIGHT_TO_AUTOSCROLL = 25;
 const NEW_CHAT_TITLE = "New Chat"
 
@@ -41,13 +46,22 @@ export const ChatInterface = () => {
   const [isThinking, setIsThinking] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)
   const [searchWeb, setSearchWeb] = useState(false)
-  const [aiModel, setAiModel] = useState<SupportedModels>("gemma-3-27b-it")
+  const [aiModel, setAiModel] = useState<SupportedModels>("gemma-4-31b-it")
   const firstChunkRef = useRef(true)
   const scrollContainerRef = useRef<HTMLDivElement>(null) // chat container for autoscroll
   const isAtBottomRef = useRef<boolean>(true) // check if you are at the bottom of a scrollContainerRef
   const conversationIdRef = useRef<string | null>(null)
   const [allConversations, setAllConversations] = useState<{ id: string, title: string }[] | null>(null);
+  const [files, setFiles] = useState<File[]>([])
+  const [s3Files, setS3Files] = useState<FileEntry[]>([])
+  const [isDragging, setIsDragging] = useState(false)
+  const [user, setUser] = useState<User | null>(null)
 
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_BACKEND_URL}/api/me`, {credentials: "include"})
+      .then(res => res.json())
+      .then(data => setUser(data.user))
+  }, [])
 
   // fetch preferred model on mount
   useEffect(() => {
@@ -152,6 +166,21 @@ export const ChatInterface = () => {
     setIsThinking(true)
     firstChunkRef.current = true
 
+    let newFiles: FileEntry[] = []
+    if (files.length > 0 && user) { // upload a file if it is a new file
+
+      for (const file of files) {
+        const key = `${user.id}/documents/${file.name}`
+        await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/storage/upload?key=${encodeURIComponent(key)}`, {
+          credentials: 'include',
+          method: 'PUT',
+          headers: {'Content-Type': file.type},
+          body: file
+        })
+        newFiles.push({name: file.name, fullKey: key, type: "file", fileType: detectFileType(file.name)})
+      }
+    }
+
     // send the message to LLM
     const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/ai/ask`, {
       headers: {"Content-Type": "application/json"},
@@ -162,6 +191,7 @@ export const ChatInterface = () => {
         contents: [...messages, userMsg],
         searchWeb,
         model: aiModel,
+        files: [...s3Files, ...newFiles],
       })
     })
 
@@ -283,8 +313,19 @@ export const ChatInterface = () => {
       <Separator/>
 
       {/* Messages */}
-      <div ref={scrollContainerRef} onScroll={handleScroll}
-           className="overflow-y-auto flex-1 flex flex-col scrollbar-thin py-2">
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragging(true)
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false)
+        }}
+        onDrop={() => setIsDragging(false)}
+        className="relative overflow-y-auto flex-1 flex flex-col scrollbar-thin py-2">
+        <InputArea setFiles={setFiles} setS3Files={setS3Files} dragging={isDragging} setDragging={setIsDragging}/>
         {messages.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6 select-none">
             <div className="size-16 rounded-2xl flex items-center justify-center">
@@ -298,6 +339,7 @@ export const ChatInterface = () => {
             </div>
           </div>
         ) : (
+          // TODO: add a file indicator when you send a message with a file
           <Chat messages={messages} isThinking={isThinking} isStreaming={isStreaming}/>
         )}
       </div>
@@ -306,6 +348,32 @@ export const ChatInterface = () => {
 
       {/* Input */}
       <div className="px-3 py-3 shrink-0">
+        {(files.length > 0 || s3Files.length > 0) && (
+          <div className="flex items-center flex-wrap gap-2 pb-2 w-full">
+            {files.map((file, i) => (
+              <div key={`local-${i}`}
+                   className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-muted/60 border border-border/50 [&_svg]:size-4">
+                {getFileIcon(file.name)}
+                <span className="text-xs max-w-32 truncate">{file.name}</span>
+                <button onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))}
+                        className="text-muted-foreground hover:text-foreground transition-colors ml-0.5">
+                  <IconX size={11}/>
+                </button>
+              </div>
+            ))}
+            {s3Files.map((file, i) => (
+              <div key={`s3-${i}`}
+                   className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 [&_svg]:size-4">
+                {getFileIcon(file.name)}
+                <span className="text-xs max-w-32 truncate">{file.name}</span>
+                <button onClick={() => setS3Files(prev => prev.filter((_, j) => j !== i))}
+                        className="text-muted-foreground hover:text-foreground transition-colors ml-0.5">
+                  <IconX size={11}/>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="relative">
           <Textarea
             value={message}
@@ -326,40 +394,40 @@ export const ChatInterface = () => {
         </div>
         <div className="flex flex-col items-center justify-center mt-2 gap-3 w-full">
           <div className="flex flex-row justify-between items-center gap-1.5 w-full">
-              <button
-                onClick={() => setSearchWeb(prev => !prev)}
-                className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors cursor-pointer ${
-                  searchWeb
-                    ? "bg-blue-500/10 border-blue-500/40 text-blue-500"
-                    : "border-border/60 text-muted-foreground hover:text-foreground hover:border-border"
-                }`}
-              >
-                <IconWorldSearch size={13}/>
-                Web search
-              </button>
+            <button
+              onClick={() => setSearchWeb(prev => !prev)}
+              className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors cursor-pointer ${
+                searchWeb
+                  ? "bg-blue-500/10 border-blue-500/40 text-blue-500"
+                  : "border-border/60 text-muted-foreground hover:text-foreground hover:border-border"
+              }`}
+            >
+              <IconWorldSearch size={13}/>
+              Web search
+            </button>
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-border/60 text-muted-foreground transition-colors hover:text-foreground hover:border-border cursor-pointer">
-                    {MODELS[aiModel]}
-                    <IconChevronDown size={11}/>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-48">
-                  <DropdownMenuLabel>Model</DropdownMenuLabel>
-                  <DropdownMenuGroup>
-                    {(Object.entries(MODELS) as [SupportedModels, string][]).map(([key, label]) => (
-                      <DropdownMenuItem key={key} onClick={() => setAiModel(key)}
-                                        className="flex items-center justify-between">
-                        {label}
-                        {aiModel === key && <IconCheck size={13} className="text-blue-500"/>}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-border/60 text-muted-foreground transition-colors hover:text-foreground hover:border-border cursor-pointer">
+                  {MODELS[aiModel]}
+                  <IconChevronDown size={11}/>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuLabel>Model</DropdownMenuLabel>
+                <DropdownMenuGroup>
+                  {(Object.entries(MODELS) as [SupportedModels, string][]).map(([key, label]) => (
+                    <DropdownMenuItem key={key} onClick={() => setAiModel(key)}
+                                      className="flex items-center justify-between">
+                      {label}
+                      {aiModel === key && <IconCheck size={13} className="text-blue-500"/>}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
         <p className="text-xs tracking-tight text-muted-foreground text-center text-nowrap">
           AI can make mistakes. Double-check responses.
@@ -368,3 +436,55 @@ export const ChatInterface = () => {
     </div>
   );
 };
+
+
+const InputArea = ({setFiles, setS3Files, dragging, setDragging}: {
+  setFiles: (x: any) => void,
+  setS3Files: (x: any) => void,
+  dragging: boolean,
+  setDragging: (x: boolean) => void
+}) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const addFiles = (incoming: FileList) => {
+    const newFiles = Array.from(incoming)
+    setFiles((prev: File[]) => [...prev, ...newFiles.filter(f => !prev.some(p => p.name === f.name))])
+  }
+
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files.length > 0) addFiles(event.target.files)
+  }
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    setDragging(false)
+    const s3Data = event.dataTransfer.getData('application/x-opencare-s3file')
+    if (s3Data) {
+      const entry: FileEntry = JSON.parse(s3Data)
+      setS3Files((prev: FileEntry[]) => prev.some(f => f.fullKey === entry.fullKey) ? prev : [...prev, entry])
+      return
+    }
+    if (event.dataTransfer.files && event.dataTransfer.files.length > 0) addFiles(event.dataTransfer.files)
+  }
+
+  return (
+    <div
+      onClick={() => fileInputRef.current?.click()}
+      onDrop={handleDrop}
+      style={{opacity: dragging ? 1 : 0, zIndex: dragging ? 10 : -10}}
+      className="absolute inset-0 top-0 w-full h-full flex flex-col items-center justify-center gap-2 border-dashed cursor-pointer rounded-xl border-2 transition-opacity duration-200 ease-in-out bg-input-background"
+    >
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleChange}
+        className="hidden"
+        accept=".pdf,.xps,.epub,.mobi,.fb2,.cbz,.svg,.txt,.jpg,.jpeg,.png,.bmp,.gif,.tiff,.tif,.pnm,.pgm,.pbm,.ppm,.pam,.jxr,.jp2,.jpx,.psd"
+        multiple
+      />
+      <IconUpload size={24} className="text-muted-foreground"/>
+      <span className="text-sm font-medium text-foreground">Upload files</span>
+      <span className="text-xs text-muted-foreground">Drag & drop</span>
+    </div>
+  )
+}
