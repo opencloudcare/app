@@ -90,11 +90,12 @@ export const AccountSecurity = () => {
       <SectionHeader
         icon={<IconEyeOff size={16} className="text-muted-foreground"/>}
         title="Personal Information"
-        description="Terms to automatically redact from uploaded documents."
+        description="To ensure your data is protected, please specify the sensitive information you would like us to redact. All provided information is double-encrypted and no text values are retained on our servers."
       />
       <div className="space-y-3 mb-6">
         <div className="rounded-xl border border-border/50 bg-card px-4 py-3 space-y-3">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Redacted terms</p>
+          <p className="text-xs font-medium text-muted-foreground capitalize">Redacted terms</p>
+          <p></p>
           {hiddenInfo.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {hiddenInfo.map((term) => (

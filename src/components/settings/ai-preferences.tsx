@@ -12,6 +12,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
+// TODO: gemma 3 27b is not available no more (REMOVE IT)
 type SupportedModels = "gemma-3-27b-it" | "gemma-4-31b-it" | "gemini-2.5-flash" | "gemini-3-flash-preview"
 
 type ModelMeta = {

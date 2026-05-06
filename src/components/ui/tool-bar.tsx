@@ -141,7 +141,7 @@ export const ToolBar = ({children, className}: ChatLayoutProps) => {
             title={activeWindow === window.name ? "Close assistant" : "Open assistant"}
             className={cn(
               "size-8 transition-colors duration-300 ease-in-out",
-              (activeWindow === window.name) && "bg-gray-200",
+              (activeWindow === window.name) && "bg-muted",
             )}
           >
             {window.icon}

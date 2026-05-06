@@ -75,6 +75,7 @@ function FileTypeIcon({type, size = 18}: { type: FileEntry['fileType'], size?: n
   }
 }
 
+// TODO: Make files draggable to folders and make a better way to create a new folder. File management system.
 export function FileExplorer() {
   const [storageList, setStorageList] = useState<S3Object[]>([])
   const [fileListLoading, setFileListLoading] = useState(false)
