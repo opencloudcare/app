@@ -26,6 +26,7 @@ import {Button} from "@/components/ui/button.tsx";
 import {Input} from "@/components/ui/input.tsx";
 import type {User} from "better-auth";
 import {toast} from "sonner";
+import {renderToStaticMarkup} from "react-dom/server";
 
 interface S3Object {
   Key: string
@@ -33,7 +34,7 @@ interface S3Object {
   LastModified: string
 }
 
-interface FileEntry {
+export interface FileEntry {
   name: string
   fullKey: string
   type: 'file' | 'folder'
@@ -42,7 +43,7 @@ interface FileEntry {
   fileType?: 'image' | 'pdf' | 'doc' | 'other'
 }
 
-function detectFileType(name: string): FileEntry['fileType'] {
+export function detectFileType(name: string): FileEntry['fileType'] {
   const ext = name.split('.').pop()?.toLowerCase() ?? ''
   if (['jpg', 'jpeg', 'png', 'bmp', 'gif', 'tiff', 'tif', 'pnm', 'pgm', 'pbm', 'ppm', 'pam', 'jxr', 'jp2', 'jpx', 'psd', 'svg'].includes(ext)) return 'image'
   if (ext === 'pdf') return 'pdf'
@@ -375,13 +376,40 @@ export function FileExplorer() {
             {entries.map(entry => (
               <div
                 key={entry.fullKey}
-                className="grid grid-cols-[1fr_90px_100px_72px] px-4 py-2.5 items-center hover:bg-muted/30 transition-colors group border-b border-border/50 last:border-0"
+                className={`grid grid-cols-[1fr_90px_100px_72px] px-4 py-2.5 items-center hover:bg-muted/30 transition-colors group border-b border-border/50 last:border-0 ${entry.type === 'file' ? 'cursor-grab active:cursor-grabbing active:opacity-60' : ''}`}
+                draggable={entry.type === 'file'}
+                onDragStart={entry.type === 'file' ? (e) => {
+                  const item = document.createElement('div')
+                  const iconHTML = renderToStaticMarkup(<FileTypeIcon type={entry.fileType} />)
+                  item.innerHTML = `${iconHTML} <span>${entry.name}</span>`
+                  item.style.cssText = `
+                       position: absolute; 
+                       top: -1000px;                                                 
+                       display: flex; 
+                       align-items: center; 
+                       gap: 6px;                                     
+                       padding: 6px 10px; 
+                       border-radius: 8px;
+                       background: hsl(var(--background));                                               
+                       border: 1px solid hsl(var(--border));
+                       font-size: 12px; 
+                       color: hsl(var(--foreground));                                   
+                       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                       `
+                  document.body.appendChild(item)
+                  e.dataTransfer.setDragImage(item, 12, 24)
+                  setTimeout(() => document.body.removeChild(item), 0)
+
+                  e.dataTransfer.setData('application/x-opencare-s3file', JSON.stringify(entry))
+                  e.dataTransfer.effectAllowed = 'copy'
+                } : undefined}
               >
                 {/* Name */}
                 <div className="flex items-center gap-2.5 min-w-0">
                   {entry.type === 'folder'
                     ? <IconFolder size={18} className="shrink-0 text-amber-400"/>
-                    : <FileTypeIcon type={entry.fileType}/>
+                    : <FileTypeIcon type={entry.fileType}
+                    />
                   }
                   {entry.type === 'folder' ? (
                     <Button
