@@ -30,10 +30,9 @@ const MIN_TEXTAREA_HEIGHT = 80;
 const MIN_SCROLL_HEIGHT_TO_AUTOSCROLL = 25;
 const NEW_CHAT_TITLE = "New Chat"
 
-type SupportedModels = "gemma-3-27b-it" | "gemma-4-31b-it" | "gemini-2.5-flash" | "gemini-3-flash-preview"
+type SupportedModels = "gemma-4-31b-it" | "gemini-2.5-flash" | "gemini-3-flash-preview"
 
 const MODELS: Record<SupportedModels, string> = {
-  "gemma-3-27b-it": "Gemma 3 27B",
   "gemma-4-31b-it": "Gemma 4 31B",
   "gemini-2.5-flash": "Gemini 2.5 Flash",
   "gemini-3-flash-preview": "Gemini 3 Flash",
@@ -68,7 +67,7 @@ export const ChatInterface = () => {
   useEffect(() => {
     fetch(`${import.meta.env.VITE_BACKEND_URL}/api/user/ai_preferences`, {credentials: "include"})
       .then(res => res.json())
-      .then(res => setAiModel(res.data.ai_model ?? "gemma-3-27b-it"))
+      .then(res => setAiModel(res.data.ai_model ?? "gemma-4-31b-it"))
       .catch(() => {
       })
   }, [])

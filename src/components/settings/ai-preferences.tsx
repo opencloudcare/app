@@ -12,8 +12,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
-// TODO: gemma 3 27b is not available no more (REMOVE IT)
-type SupportedModels = "gemma-3-27b-it" | "gemma-4-31b-it" | "gemini-2.5-flash" | "gemini-3-flash-preview"
+type SupportedModels = "gemma-4-31b-it" | "gemini-2.5-flash" | "gemini-3-flash-preview"
 
 type ModelMeta = {
   label: string
@@ -22,11 +21,6 @@ type ModelMeta = {
 }
 
 const models: Record<SupportedModels, ModelMeta> = {
-  "gemma-3-27b-it": {
-    label: "Gemma 3 27B",
-    description: "Lightweight and fast. Great for quick questions and everyday tasks.",
-    tags: [{label: "Fast", variant: "speed"}],
-  },
   "gemma-4-31b-it": {
     label: "Gemma 4 31B",
     description: "A step up in reasoning while keeping response times low.",
@@ -61,7 +55,7 @@ const tagIcons: Record<ModelMeta["tags"][number]["variant"], React.ReactNode> = 
 export const AiPreferences = () => {
   const [defaultWebSearch, setDefaultWebSearch] = useState<boolean>(false)
   const [verboseResponses, setVerboseResponses] = useState<boolean>(false)
-  const [aiModel, setAiModel] = useState<SupportedModels>("gemma-3-27b-it")
+  const [aiModel, setAiModel] = useState<SupportedModels>("gemma-4-31b-it")
   const [dialogOpen, setDialogOpen] = useState(false)
 
   useEffect(() => {
