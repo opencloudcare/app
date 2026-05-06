@@ -56,6 +56,7 @@ export const ChatInterface = () => {
   const [s3Files, setS3Files] = useState<FileEntry[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [user, setUser] = useState<User | null>(null)
+  const [prompting, setPrompting] = useState<boolean>(false)
 
   useEffect(() => {
     fetch(`${import.meta.env.VITE_BACKEND_URL}/api/me`, {credentials: "include"})
@@ -125,7 +126,7 @@ export const ChatInterface = () => {
     if (!response || signal?.aborted) return;
 
     for (const row of response.data) { // iterate through the messages and set the new ones
-      setMessages(prev => [...prev, {role: row.role, content: row.content}])
+      setMessages(prev => [...prev, {role: row.role, content: row.content, files: row.files ?? undefined}])
     }
   }
 
@@ -141,8 +142,14 @@ export const ChatInterface = () => {
 
   // SEND MESSAGE FUNCTION
   const send = useCallback(async () => {
+    setPrompting(true)
     if (!message.trim()) return
-    const userMsg: Message = {role: "user", content: message}
+    // build file entries upfront — keys are deterministic so we know them before upload
+    const localFileEntries: FileEntry[] = files.map(f => ({
+      name: f.name, fullKey: `${user?.id}/documents/${f.name}`, type: 'file' as const, fileType: detectFileType(f.name)
+    }))
+    const allAttachedFiles = [...s3Files, ...localFileEntries]
+    const userMsg: Message = {role: "user", content: message, files: allAttachedFiles.length > 0 ? allAttachedFiles : undefined}
     setMessage("")
     let isNewConversation = false;
 
@@ -166,9 +173,7 @@ export const ChatInterface = () => {
     setIsThinking(true)
     firstChunkRef.current = true
 
-    let newFiles: FileEntry[] = []
     if (files.length > 0 && user) { // upload a file if it is a new file
-
       for (const file of files) {
         const key = `${user.id}/documents/${file.name}`
         await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/storage/upload?key=${encodeURIComponent(key)}`, {
@@ -177,7 +182,6 @@ export const ChatInterface = () => {
           headers: {'Content-Type': file.type},
           body: file
         })
-        newFiles.push({name: file.name, fullKey: key, type: "file", fileType: detectFileType(file.name)})
       }
     }
 
@@ -191,9 +195,14 @@ export const ChatInterface = () => {
         contents: [...messages, userMsg],
         searchWeb,
         model: aiModel,
-        files: [...s3Files, ...newFiles],
+        files: allAttachedFiles,
       })
     })
+
+    // reset the files state
+    setFiles([])
+    setS3Files([])
+    setPrompting(false)
 
     if (!response.ok) {
       const errorMsg = response.status === 429 // -> usage error code
@@ -268,7 +277,13 @@ export const ChatInterface = () => {
 
   return (
     <div
-      className="bg-chat-background w-full h-full rounded-l-2xl shadow-md border border-border/50 flex flex-col overflow-hidden">
+      className="relative bg-chat-background w-full h-full rounded-l-2xl shadow-md border border-border/50 flex flex-col overflow-hidden"
+      onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false) }}
+      onDrop={() => setIsDragging(false)}
+    >
+
+      <InputArea setFiles={setFiles} setS3Files={setS3Files} dragging={isDragging} setDragging={setIsDragging}/>
 
       {/* Header */}
       <div className="px-4 py-3 flex items-center gap-2.5 shrink-0">
@@ -316,16 +331,7 @@ export const ChatInterface = () => {
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setIsDragging(true)
-        }}
-        onDragLeave={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false)
-        }}
-        onDrop={() => setIsDragging(false)}
-        className="relative overflow-y-auto flex-1 flex flex-col scrollbar-thin py-2">
-        <InputArea setFiles={setFiles} setS3Files={setS3Files} dragging={isDragging} setDragging={setIsDragging}/>
+        className="overflow-y-auto flex-1 flex flex-col scrollbar-thin py-2">
         {messages.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6 select-none">
             <div className="size-16 rounded-2xl flex items-center justify-center">
@@ -339,7 +345,6 @@ export const ChatInterface = () => {
             </div>
           </div>
         ) : (
-          // TODO: add a file indicator when you send a message with a file
           <Chat messages={messages} isThinking={isThinking} isStreaming={isStreaming}/>
         )}
       </div>
@@ -348,7 +353,7 @@ export const ChatInterface = () => {
 
       {/* Input */}
       <div className="px-3 py-3 shrink-0">
-        {(files.length > 0 || s3Files.length > 0) && (
+        {(files.length > 0 || s3Files.length > 0) && !prompting && (
           <div className="flex items-center flex-wrap gap-2 pb-2 w-full">
             {files.map((file, i) => (
               <div key={`local-${i}`}
@@ -356,7 +361,7 @@ export const ChatInterface = () => {
                 {getFileIcon(file.name)}
                 <span className="text-xs max-w-32 truncate">{file.name}</span>
                 <button onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))}
-                        className="text-muted-foreground hover:text-foreground transition-colors ml-0.5">
+                        className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors ml-0.5">
                   <IconX size={11}/>
                 </button>
               </div>
@@ -367,7 +372,7 @@ export const ChatInterface = () => {
                 {getFileIcon(file.name)}
                 <span className="text-xs max-w-32 truncate">{file.name}</span>
                 <button onClick={() => setS3Files(prev => prev.filter((_, j) => j !== i))}
-                        className="text-muted-foreground hover:text-foreground transition-colors ml-0.5">
+                        className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors ml-0.5">
                   <IconX size={11}/>
                 </button>
               </div>
@@ -471,8 +476,8 @@ const InputArea = ({setFiles, setS3Files, dragging, setDragging}: {
     <div
       onClick={() => fileInputRef.current?.click()}
       onDrop={handleDrop}
-      style={{opacity: dragging ? 1 : 0, zIndex: dragging ? 10 : -10}}
-      className="absolute inset-0 top-0 w-full h-full flex flex-col items-center justify-center gap-2 border-dashed cursor-pointer rounded-xl border-2 transition-opacity duration-200 ease-in-out bg-input-background"
+      style={{opacity: dragging ? 1 : 0, zIndex: 10, pointerEvents: dragging ? 'auto' : 'none'}}
+      className="absolute inset-0 top-0 w-full h-full flex flex-col items-center justify-center gap-2 cursor-pointer rounded-xl transition-opacity duration-200 ease-in-out bg-input-background/80"
     >
       <input
         type="file"

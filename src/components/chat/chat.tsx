@@ -6,8 +6,10 @@ import SyntaxHighlighter from "@/components/chat/languages";
 import {oneDark, oneLight} from "react-syntax-highlighter/dist/esm/styles/prism";
 import {IconCheck, IconCopy} from "@tabler/icons-react";
 import {useTheme} from "@/components/ui/theme-provider.tsx";
+import {getFileIcon} from "@/components/ui/input-file.tsx";
+import type {FileEntry} from "@/components/files/file-explorer.tsx";
 
-export type Message = { role: 'user' | 'model', content: string, images?: string[] }
+export type Message = { role: 'user' | 'model', content: string, images?: string[], files?: FileEntry[] }
 
 const IMAGE_URL_RE = /https?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp|svg|bmp|avif)(?:[?#]\S*)?/gi
 const ANY_URL_RE = /https?:\/\/\S+/gi
@@ -43,11 +45,6 @@ export const Chat = ({messages, isThinking, isStreaming}: { messages: Message[],
               return (
                 <div className="flex justify-end">
                   <div className="flex flex-col items-end gap-1.5 max-w-[85%]">
-                    {text && (
-                      <div className="bg-linear-to-br from-blue-600 to-blue-300 text-white px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm whitespace-pre-wrap shadow-sm">
-                        {text}
-                      </div>
-                    )}
                     {allImages.length > 0 && (
                       <div className="flex flex-wrap justify-end gap-1.5">
                         {allImages.map((src, idx) => (
@@ -63,6 +60,21 @@ export const Chat = ({messages, isThinking, isStreaming}: { messages: Message[],
                     {maybeImageUrls.map((src, idx) => (
                       <MaybeImage key={idx} src={src}/>
                     ))}
+                    {msg.files && msg.files.length > 0 && (
+                      <div className="flex flex-wrap justify-end gap-1.5">
+                        {msg.files.map((file, idx) => (
+                          <div key={idx} className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 [&_svg]:size-4 cursor-pointer hover:bg-blue-500/20 transition-colors">
+                            {getFileIcon(file.name ?? "")}
+                            <span className="text-xs max-w-32 truncate">{file.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {text && (
+                      <div className="bg-linear-to-br from-blue-600 to-blue-300 text-white px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm whitespace-pre-wrap shadow-sm">
+                        {text}
+                      </div>
+                    )}
                   </div>
                 </div>
               )
