@@ -21,6 +21,7 @@
   --color-chat-background: var(--chat-background);
   --color-chat-code-background: var(--chat-code-background);
   --color-chat-code-foreground: var(--chat-code-foreground);
+  --color-input-background: var(--input-background);
   --color-sidebar: var(--sidebar);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
@@ -73,6 +74,7 @@
   --chat-background: oklch(1 0 100);
   --chat-code-background: oklch(0.991 0 89.876 / 0.99);
   --chat-code-foreground: oklch(0.473 0.125 23.717);
+  --input-background: oklch(0.966 0.002 17.196);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -111,6 +113,7 @@
   --chat-background: oklch(0.268 0.004 106.643);
   --chat-code-background: oklch(0.288 0.004 106.622);
   --chat-code-foreground: oklch(0.745 0.153 21.414);
+  --input-background: oklch(0.32 0.005 106.691);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);

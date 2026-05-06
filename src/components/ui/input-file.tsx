@@ -1,18 +1,18 @@
 import React, {useEffect, useRef, useState} from 'react'
-import {IconUpload, IconPhoto, IconX, IconFile, IconFileTypePdf, IconFileTypeDocx} from "@tabler/icons-react";
+import {IconUpload, IconPhoto, IconX, IconFile, IconFileTypePdf} from "@tabler/icons-react";
 
 interface InputFileProps {
   onFilesSelect: (files: File[]) => void
 }
 
-function getFileIcon(name: string) {
+export function getFileIcon(name: string) {
   const ext = name.split('.').pop()?.toLowerCase() ?? ''
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(ext))
+  if (['jpg', 'jpeg', 'png', 'bmp', 'gif', 'tiff', 'tif', 'pnm', 'pgm', 'pbm', 'ppm', 'pam', 'jxr', 'jp2', 'jpx', 'psd', 'svg'].includes(ext))
     return <IconPhoto size={24} className="text-blue-400" />
   if (ext === 'pdf')
     return <IconFileTypePdf size={24} className="text-red-500" />
-  if (['doc', 'docx', 'odt', 'rtf'].includes(ext))
-    return <IconFileTypeDocx size={24} className="text-blue-600" />
+  if (['epub', 'mobi', 'fb2', 'cbz', 'xps', 'txt'].includes(ext))
+    return <IconFile size={24} className="text-blue-600" />
   return <IconFile size={24} className="text-muted-foreground" />
 }
 
@@ -67,7 +67,7 @@ export const InputFile = ({onFilesSelect}: InputFileProps) => {
         ref={fileInputRef}
         onChange={handleChange}
         className="hidden"
-        accept="image/*,.pdf,.doc,.docx,.odt,.rtf,.txt,.csv"
+        accept=".pdf,.xps,.epub,.mobi,.fb2,.cbz,.svg,.txt,.jpg,.jpeg,.png,.bmp,.gif,.tiff,.tif,.pnm,.pgm,.pbm,.ppm,.pam,.jxr,.jp2,.jpx,.psd"
         multiple
       />
 

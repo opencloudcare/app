@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React, {useEffect, useState} from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type {Components} from "react-markdown";
@@ -6,8 +6,10 @@ import SyntaxHighlighter from "@/components/chat/languages";
 import {oneDark, oneLight} from "react-syntax-highlighter/dist/esm/styles/prism";
 import {IconCheck, IconCopy} from "@tabler/icons-react";
 import {useTheme} from "@/components/ui/theme-provider.tsx";
+import {getFileIcon} from "@/components/ui/input-file.tsx";
+import type {FileEntry} from "@/components/files/file-explorer.tsx";
 
-export type Message = { role: 'user' | 'model', content: string, images?: string[] }
+export type Message = { role: 'user' | 'model', content: string, images?: string[], files?: FileEntry[] }
 
 const IMAGE_URL_RE = /https?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp|svg|bmp|avif)(?:[?#]\S*)?/gi
 const ANY_URL_RE = /https?:\/\/\S+/gi
@@ -40,14 +42,11 @@ export const Chat = ({messages, isThinking, isStreaming}: { messages: Message[],
             (() => {
               const { imageUrls, maybeImageUrls, text } = parseUserContent(msg.content)
               const allImages = [...(msg.images ?? []), ...imageUrls]
+              const s3ImageFiles = msg.images ? [] : (msg.files?.filter(f => f.fileType === "image") ?? [])
+              const nonImageFiles = msg.files?.filter(f => f.fileType !== "image") ?? []
               return (
                 <div className="flex justify-end">
                   <div className="flex flex-col items-end gap-1.5 max-w-[85%]">
-                    {text && (
-                      <div className="bg-linear-to-br from-blue-600 to-blue-300 text-white px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm whitespace-pre-wrap shadow-sm">
-                        {text}
-                      </div>
-                    )}
                     {allImages.length > 0 && (
                       <div className="flex flex-wrap justify-end gap-1.5">
                         {allImages.map((src, idx) => (
@@ -60,9 +59,31 @@ export const Chat = ({messages, isThinking, isStreaming}: { messages: Message[],
                         ))}
                       </div>
                     )}
+                    {s3ImageFiles.length > 0 && (
+                      <div className="flex flex-wrap justify-end gap-1.5">
+                        {s3ImageFiles.map((file, idx) => (
+                          <S3Image key={idx} file={file}/>
+                        ))}
+                      </div>
+                    )}
                     {maybeImageUrls.map((src, idx) => (
                       <MaybeImage key={idx} src={src}/>
                     ))}
+                    {nonImageFiles.length > 0 && (
+                      <div className="flex flex-wrap justify-end gap-1.5">
+                        {nonImageFiles.map((file, idx) => (
+                          <div key={idx} className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 [&_svg]:size-4 cursor-pointer hover:bg-blue-500/20 transition-colors">
+                            {getFileIcon(file.name ?? "")}
+                            <span className="text-xs max-w-32 truncate">{file.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {text && (
+                      <div className="bg-linear-to-br from-blue-600 to-blue-300 text-white px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm whitespace-pre-wrap shadow-sm">
+                        {text}
+                      </div>
+                    )}
                   </div>
                 </div>
               )
@@ -159,6 +180,16 @@ const ThinkingDots = () => (
     <span className="size-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:300ms]"/>
   </div>
 )
+
+const S3Image = ({file}: { file: FileEntry }) => {
+  const [src, setSrc] = useState<string | null>(null)
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_BACKEND_URL}/api/storage/get?key=${encodeURIComponent(file.fullKey)}`, {credentials: 'include'})
+      .then(r => r.json()).then(r => setSrc(r.data)).catch(() => {})
+  }, [file.fullKey])
+  if (!src) return null
+  return <img src={src} alt={file.name} className="max-h-64 max-w-full rounded-xl object-cover shadow-sm"/>
+}
 
 // Tries to render a URL as an image; falls back to a plain link if it fails to load
 const MaybeImage = ({src}: { src: string }) => {
