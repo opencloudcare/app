@@ -144,12 +144,33 @@ export const ChatInterface = () => {
   const send = useCallback(async () => {
     setPrompting(true)
     if (!message.trim()) return
+
     // build file entries upfront — keys are deterministic so we know them before upload
     const localFileEntries: FileEntry[] = files.map(f => ({
       name: f.name, fullKey: `${user?.id}/documents/${f.name}`, type: 'file' as const, fileType: detectFileType(f.name)
     }))
-    const allAttachedFiles = [...s3Files, ...localFileEntries]
-    const userMsg: Message = {role: "user", content: message, files: allAttachedFiles.length > 0 ? allAttachedFiles : undefined}
+    const allAttachedFiles = [...s3Files, ...localFileEntries] // all files
+    const localImageUrls = files.filter(f => f.type.startsWith('image/')).map(f => URL.createObjectURL(f)) // images from local storage
+    const s3ImageUrls = await Promise.all( // fetch signed urls for upladed images
+      s3Files
+        .filter(f => f.fileType === "image")
+        .map(f =>
+          fetch(`${import.meta.env.VITE_BACKEND_URL}/api/storage/get?key=${encodeURIComponent(f.fullKey)}`, {credentials: 'include'})
+            .then(r => r.json()).then(r => r.data as string).catch(() => null)
+        )
+    ).then(urls => urls.filter(Boolean) as string[])
+
+    const allImageUrls = [...localImageUrls, ...s3ImageUrls] // group images
+
+
+    const userMsg: Message = {
+      role: "user",
+      content: message,
+      files: allAttachedFiles.length > 0 ? allAttachedFiles : undefined,
+      images: allImageUrls.length > 0 ? allImageUrls : undefined,
+    }
+
+
     setMessage("")
     let isNewConversation = false;
 
@@ -264,7 +285,7 @@ export const ChatInterface = () => {
       })
       fetchConversations() // refetch the conversation -> update list
     }
-  }, [message, messages])
+  }, [message, messages, files, s3Files, user])
 
 
   // Send message by pressing the enter key (filter out enter + shift)

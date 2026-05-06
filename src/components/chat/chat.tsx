@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React, {useEffect, useState} from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type {Components} from "react-markdown";
@@ -42,6 +42,8 @@ export const Chat = ({messages, isThinking, isStreaming}: { messages: Message[],
             (() => {
               const { imageUrls, maybeImageUrls, text } = parseUserContent(msg.content)
               const allImages = [...(msg.images ?? []), ...imageUrls]
+              const s3ImageFiles = msg.images ? [] : (msg.files?.filter(f => f.fileType === "image") ?? [])
+              const nonImageFiles = msg.files?.filter(f => f.fileType !== "image") ?? []
               return (
                 <div className="flex justify-end">
                   <div className="flex flex-col items-end gap-1.5 max-w-[85%]">
@@ -57,12 +59,19 @@ export const Chat = ({messages, isThinking, isStreaming}: { messages: Message[],
                         ))}
                       </div>
                     )}
+                    {s3ImageFiles.length > 0 && (
+                      <div className="flex flex-wrap justify-end gap-1.5">
+                        {s3ImageFiles.map((file, idx) => (
+                          <S3Image key={idx} file={file}/>
+                        ))}
+                      </div>
+                    )}
                     {maybeImageUrls.map((src, idx) => (
                       <MaybeImage key={idx} src={src}/>
                     ))}
-                    {msg.files && msg.files.length > 0 && (
+                    {nonImageFiles.length > 0 && (
                       <div className="flex flex-wrap justify-end gap-1.5">
-                        {msg.files.map((file, idx) => (
+                        {nonImageFiles.map((file, idx) => (
                           <div key={idx} className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 [&_svg]:size-4 cursor-pointer hover:bg-blue-500/20 transition-colors">
                             {getFileIcon(file.name ?? "")}
                             <span className="text-xs max-w-32 truncate">{file.name}</span>
@@ -171,6 +180,16 @@ const ThinkingDots = () => (
     <span className="size-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:300ms]"/>
   </div>
 )
+
+const S3Image = ({file}: { file: FileEntry }) => {
+  const [src, setSrc] = useState<string | null>(null)
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_BACKEND_URL}/api/storage/get?key=${encodeURIComponent(file.fullKey)}`, {credentials: 'include'})
+      .then(r => r.json()).then(r => setSrc(r.data)).catch(() => {})
+  }, [file.fullKey])
+  if (!src) return null
+  return <img src={src} alt={file.name} className="max-h-64 max-w-full rounded-xl object-cover shadow-sm"/>
+}
 
 // Tries to render a URL as an image; falls back to a plain link if it fails to load
 const MaybeImage = ({src}: { src: string }) => {

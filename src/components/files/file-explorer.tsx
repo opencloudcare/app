@@ -8,7 +8,7 @@ import {
   IconFolder,
   IconHome,
   IconLoader2,
-  IconPhoto,
+  IconPhoto, IconReload,
   IconTrash,
   IconUpload,
   IconX,
@@ -282,6 +282,10 @@ export function FileExplorer() {
             ))}
           </BreadcrumbList>
         </Breadcrumb>
+        <div className="inline-flex items-center gap-4">
+        <button className="cursor-pointer" onClick={fetchFileList}>
+          <IconReload size={14} />
+        </button>
 
         <Button
           variant="outline"
@@ -291,6 +295,7 @@ export function FileExplorer() {
           <IconUpload size={14}/>
           Upload
         </Button>
+        </div>
       </div>
 
       {/* Upload area */}
