@@ -165,13 +165,7 @@ function buildStyles(showEdgeLabels: boolean) {
         width:              180,
         height:             60,
         shape:              "round-rectangle",
-        // Soft glow matching the group border color
-        "shadow-blur":      16,
-        "shadow-color":     "data(borderColor)",
-        "shadow-opacity":   0.25,
-        "shadow-offset-x":  0,
-        "shadow-offset-y":  0,
-        "transition-property": "border-width, shadow-opacity, opacity",
+        "transition-property": "border-width, opacity",
         "transition-duration": "120ms",
       } as any,
     },
@@ -180,10 +174,8 @@ function buildStyles(showEdgeLabels: boolean) {
     {
       selector: "node:selected",
       style: {
-        "border-width":   2.5,
-        "border-color":   "#fbbf24",
-        "shadow-color":   "#fbbf24",
-        "shadow-opacity": 0.55,
+        "border-width": 2.5,
+        "border-color": "#fbbf24",
       } as any,
     },
 
@@ -191,11 +183,9 @@ function buildStyles(showEdgeLabels: boolean) {
     {
       selector: "node.highlighted",
       style: {
-        "border-width":   2.5,
-        "border-color":   "#fbbf24",
-        "shadow-color":   "#fbbf24",
-        "shadow-opacity": 0.6,
-        "z-index":        10,
+        "border-width": 2.5,
+        "border-color": "#fbbf24",
+        "z-index":      10,
       } as any,
     },
 
@@ -279,7 +269,7 @@ function getLayoutConfig(name: LayoutName): cytoscape.LayoutOptions {
 
     case "breadth-first":
       return {
-        name:          "breadth-first",
+        name:          "breadthfirst",
         padding:       60,
         fit:           true,
         directed:      true,
@@ -378,7 +368,7 @@ function TableDetailPanel({
   const defaults = table.columns.filter(c => c.default !== null)
 
   return (
-    <div className="w-72 flex flex-col border-l border-border/50 bg-card overflow-hidden shrink-0">
+    <div className="w-72 flex flex-col border-l border-border/50 bg-card shrink-0">
 
       {/* Panel header */}
       <div
@@ -400,7 +390,7 @@ function TableDetailPanel({
       </div>
 
       {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto scrollbar-hide p-3 space-y-5">
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-5 pb-20">
 
         {/* Columns */}
         <section>
@@ -530,6 +520,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 export function DatabaseVisualizer({ graphHeight = 580, className }: { graphHeight?: number | string; className?: string }) {
   const containerRef  = useRef<HTMLDivElement>(null)
   const cyRef         = useRef<Core | null>(null)
+  const layoutRef     = useRef<cytoscape.Layouts | null>(null)
 
   const [schema,        setSchema]        = useState<SchemaData | null>(null)
   const [loading,       setLoading]       = useState(true)
@@ -557,17 +548,31 @@ export function DatabaseVisualizer({ graphHeight = 580, className }: { graphHeig
   useEffect(() => { // cytoscape initialization
     if (!schema || !containerRef.current) return
 
-    cyRef.current?.destroy() // destroy any previous instance (handles React Strict-mode double-mount)
+    // Create a fresh DOM node for each cy instance. On cleanup we remove it from
+    // the DOM entirely — this is the only reliable way to stop Cytoscape's native
+    // DOM event listeners (mousemove/mousedown/mouseup) from firing on a destroyed
+    // instance, which happens because React Strict Mode runs cleanup then re-runs
+    // the effect, leaving stale listeners on a reused container element.
+    const mountNode = document.createElement("div")
+    mountNode.style.width  = "100%"
+    mountNode.style.height = "100%"
+    containerRef.current.appendChild(mountNode)
 
     const cy = cytoscape({
-      container:       containerRef.current,
-      elements:        buildElements(schema),
-      style:           buildStyles(showLabels),
-      layout:          getLayoutConfig(layoutName),
-      wheelSensitivity: 0.25,
-      minZoom:         0.15,
-      maxZoom:         4,
+      container: mountNode,
+      elements:  buildElements(schema),
+      style:     buildStyles(showLabels),
+      minZoom:   0.15,
+      maxZoom:   4,
     })
+
+    // Run layout separately so we hold a reference — needed to call layout.stop()
+    // before cy.destroy() in cleanup. CoseLayout runs across many requestAnimationFrame
+    // callbacks; if we destroy cy while the layout is mid-animation the queued rAF
+    // fires and tries to call endBatch() on a null _private.
+    const layout = cy.layout(getLayoutConfig(layoutName))
+    layoutRef.current = layout
+    layout.run()
 
     // Node tap → highlight neighborhood + open detail panel
     cy.on("tap", "node", (evt: EventObject) => {
@@ -594,8 +599,18 @@ export function DatabaseVisualizer({ graphHeight = 580, className }: { graphHeig
     cyRef.current = cy
 
     return () => {
-      cy.destroy()
       cyRef.current = null
+      layoutRef.current?.stop()
+      layoutRef.current = null
+      // Stub out startBatch/endBatch BEFORE destroying. CoseLayout schedules
+      // requestAnimationFrame callbacks that may fire after destroy() nulls
+      // _private; those callbacks call endBatch() which then crashes. The stubs
+      // stay on the instance so any queued rAF callbacks hit them instead.
+      ;(cy as any).startBatch = () => {}
+      ;(cy as any).endBatch   = () => {}
+      ;(cy as any).fit        = () => {}
+      cy.destroy()
+      mountNode.remove()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schema])
