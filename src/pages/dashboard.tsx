@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { User } from "@/lib/auth"
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Types
 
 interface Stats {
   conversationCount: number
@@ -145,7 +145,11 @@ function QuickAction({ icon: Icon, label, description, onClick, accent }: {
   )
 }
 
-function ConversationRow({ conv, onClick }: { conv: Conversation; onClick: () => void }) {
+function openWindow(name: "chat" | "fileEx") {
+  window.dispatchEvent(new CustomEvent("opencare:openWindow", {detail: {window: name}}))
+}
+
+function ConversationRow({ conv }: { conv: Conversation }) {
   return (
     <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted/30 border border-transparent hover:border-border/30 transition-all group">
       <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/20 shrink-0">
@@ -155,12 +159,13 @@ function ConversationRow({ conv, onClick }: { conv: Conversation; onClick: () =>
         <p className="text-sm font-medium truncate">{conv.title || "Untitled consultation"}</p>
         <p className="text-[11px] text-muted-foreground">{relativeTime(conv.updated_at)}</p>
       </div>
-
-      {/* TODO: go to the conversations */}
       <Button
         variant="ghost"
         size="sm"
-        onClick={onClick}
+        onClick={() => {
+          openWindow("chat")
+          window.dispatchEvent(new CustomEvent("opencare:loadConversation", {detail: {id: conv.id, title: conv.title}}))
+        }}
         className="h-7 px-2.5 text-xs opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
       >
         Resume <IconArrowRight size={11} className="ml-1" />
@@ -361,21 +366,21 @@ export function DashboardPage() {
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">Quick actions</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
 
-                {/* TODO: New conversation trigger*/}
                 <QuickAction
                   icon={IconStethoscope}
                   label="New consultation"
                   description="Describe your symptoms to the AI"
-                  onClick={() => navigate("/dashboard")}
+                  onClick={() => {
+                    openWindow("chat")
+                    window.dispatchEvent(new CustomEvent("opencare:newConversation"))
+                  }}
                   accent="blue"
                 />
-
-                {/* TODO: File explorer triggered */}
                 <QuickAction
                   icon={IconUpload}
                   label="Upload document"
                   description="Share lab results or medical records"
-                  onClick={() => navigate("/dashboard")}
+                  onClick={() => openWindow("fileEx")}
                   accent="violet"
                 />
                 <QuickAction
@@ -395,9 +400,11 @@ export function DashboardPage() {
                   Recent consultations
                 </p>
                 {conversations.length > 5 && (
-                  // TODO: open conversations panel - all conversations (instead of chat)
                   <button
-                    onClick={() => navigate("/dashboard")}
+                    onClick={() => {
+                      openWindow("chat")
+                      window.dispatchEvent(new CustomEvent("opencare:showConversationsPanel"))
+                    }}
                     className="text-[11px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                   >
                     View all →
@@ -414,11 +421,7 @@ export function DashboardPage() {
               ) : (
                 <div className="space-y-0.5">
                   {conversations.slice(0, 6).map(conv => (
-                    <ConversationRow
-                      key={conv.id}
-                      conv={conv}
-                      onClick={() => navigate("/dashboard")}
-                    />
+                    <ConversationRow key={conv.id} conv={conv} />
                   ))}
                 </div>
               )}

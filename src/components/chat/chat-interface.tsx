@@ -116,7 +116,7 @@ export const ChatInterface = () => {
   }, [])
 
   // Load a desired conversation based on the conversation id
-  const loadConversation = async (convId: string, signal?: AbortSignal) => {
+  const loadConversation = useCallback(async (convId: string, signal?: AbortSignal) => {
     setConversationId(convId);
     setMessages([]) // reset the messages
     const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/ai/conversations/${convId}`, {
@@ -130,7 +130,32 @@ export const ChatInterface = () => {
     for (const row of response.data) { // iterate through the messages and set the new ones
       setMessages(prev => [...prev, {role: row.role, content: row.content, files: row.files ?? undefined}])
     }
-  }
+  }, [setConversationId])
+
+  // External event listeners (dispatched from other pages e.g. Dashboard)
+  useEffect(() => {
+    const handleLoad = (e: Event) => {
+      const {id, title} = (e as CustomEvent<{id: string; title: string}>).detail
+      loadConversation(id)
+      setChatTitle(title)
+      setConversationId(id, title)
+    }
+    const handleNew = () => {
+      setConversationId(null)
+      setChatTitle(NEW_CHAT_TITLE)
+      setMessages([])
+    }
+    const handleShowPanel = () => setShowConversations(true)
+
+    window.addEventListener("opencare:loadConversation", handleLoad)
+    window.addEventListener("opencare:newConversation", handleNew)
+    window.addEventListener("opencare:showConversationsPanel", handleShowPanel)
+    return () => {
+      window.removeEventListener("opencare:loadConversation", handleLoad)
+      window.removeEventListener("opencare:newConversation", handleNew)
+      window.removeEventListener("opencare:showConversationsPanel", handleShowPanel)
+    }
+  }, [loadConversation, setConversationId])
 
 
   // This one lets you force scroll if you want to read the chat at your own pase and not follow the

@@ -1,4 +1,4 @@
-import React, {type ReactNode, useCallback, useEffect, useRef, useState} from "react";
+import {type ReactNode, useCallback, useEffect, useRef, useState} from "react";
 import {cn} from "@/lib/utils.ts";
 import {ChatInterface} from "@/components/chat/chat-interface.tsx";
 import {Button} from "@/components/ui/button.tsx";
@@ -39,6 +39,19 @@ export const ToolBar = ({children, className}: ChatLayoutProps) => {
       }
     }
   }, []);
+
+  useEffect(() => { // listen for custom event (quick action - dashboard)
+    const handler = (e: Event) => {
+      const {window: name} = (e as CustomEvent<{window: WindowOptions}>).detail
+      const width = savedWidth.current === 0 ? 512 : savedWidth.current
+      setActiveWindow(name)
+      setWindowWidth(name === "none" ? COLLAPSED_WIDTH : width)
+      localStorage.setItem("activeWindow", name)
+      if (name !== "none") localStorage.setItem("savedWidth", width.toString())
+    }
+    window.addEventListener("opencare:openWindow", handler)
+    return () => window.removeEventListener("opencare:openWindow", handler)
+  }, [])
 
   const windows = [
     {
@@ -109,8 +122,10 @@ export const ToolBar = ({children, className}: ChatLayoutProps) => {
           isDraggingState && "select-none" // don't select text while resizing
         )}
       >
-        {windows.filter((w) => w.name === activeWindow).map((window, i) => (
-          <React.Fragment key={i}>{window.component}</React.Fragment>
+        {windows.map((w) => ( // mount both windows but only show one
+          <div key={w.name} className="h-full" style={{display: w.name === activeWindow ? undefined : "none"}}>
+            {w.component}
+          </div>
         ))}
       </div>
 
