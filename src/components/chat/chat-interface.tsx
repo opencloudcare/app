@@ -9,6 +9,7 @@ import {
   IconChevronDown,
   IconMessageCirclePlus,
   IconRobot,
+  IconTrash,
   IconUpload,
   IconWorldSearch,
   IconX,
@@ -56,6 +57,8 @@ export const ChatInterface = () => {
   const [isDragging, setIsDragging] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [prompting, setPrompting] = useState<boolean>(false)
+  const [showConversations, setShowConversations] = useState(false)
+  const [conversationSearch, setConversationSearch] = useState("")
 
   useEffect(() => {
     fetch(`${import.meta.env.VITE_BACKEND_URL}/api/me`, {credentials: "include"})
@@ -305,6 +308,74 @@ export const ChatInterface = () => {
 
       <InputArea setFiles={setFiles} setS3Files={setS3Files} dragging={isDragging} setDragging={setIsDragging}/>
 
+      {/* Backdrop */}
+      <div
+        onClick={() => setShowConversations(false)}
+        className={`absolute inset-0 bg-black/20 transition-opacity duration-200 z-10 ${showConversations ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+      />
+
+      {/* Conversations Panel */}
+      <div
+        className={`absolute inset-y-0 right-0 w-72 bg-chat-background border-l border-border/50 flex flex-col z-20 transition-transform duration-300 ease-in-out ${showConversations ? "translate-x-0" : "translate-x-full"}`}
+      >
+        <div className="px-4 py-3 flex items-center justify-between shrink-0">
+          <h2 className="font-semibold text-sm">Chat History</h2>
+          <button
+            onClick={() => { setShowConversations(false); setConversationSearch("") }}
+            className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <IconX size={16}/>
+          </button>
+        </div>
+        <Separator/>
+        <div className="px-3 pt-2 pb-1 shrink-0">
+          <input
+            value={conversationSearch}
+            onChange={(e) => setConversationSearch(e.target.value)}
+            placeholder="Search conversations..."
+            className="w-full text-sm bg-muted/50 border border-border/60 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500/30 placeholder:text-muted-foreground"
+          />
+        </div>
+        <div className="overflow-y-auto flex-1 scrollbar-thin px-2 py-1">
+          {allConversations && allConversations.length > 0 ? (
+            allConversations
+              .filter(conv => conv.title.toLowerCase().includes(conversationSearch.toLowerCase()))
+              .map(conv => (
+                <div key={conv.id} className="group flex items-center gap-1 rounded-lg hover:bg-muted/70 transition-colors px-1">
+                  <button
+                    onClick={() => {
+                      loadConversation(conv.id)
+                      setChatTitle(conv.title)
+                      setConversationId(conv.id, conv.title)
+                      setShowConversations(false)
+                      setConversationSearch("")
+                    }}
+                    className="flex-1 text-left px-2 py-2 text-sm text-muted-foreground group-hover:text-foreground transition-colors truncate cursor-pointer"
+                  >
+                    {conv.title}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/ai/conversations/${conv.id}`, {method: "DELETE", credentials: "include"})
+                      setAllConversations(prev => prev?.filter(c => c.id !== conv.id) ?? null)
+                      if (conversationIdRef.current === conv.id) {
+                        setConversationId(null)
+                        setChatTitle(NEW_CHAT_TITLE)
+                        setMessages([])
+                      }
+                    }}
+                    className="shrink-0 p-1 rounded cursor-pointer text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                  >
+                    <IconTrash size={14}/>
+                  </button>
+                </div>
+              ))
+          ) : (
+            <p className="text-xs italic text-muted-foreground px-3 py-2">No previous chats.</p>
+          )}
+        </div>
+      </div>
+
       {/* Header */}
       <div className="px-4 py-3 flex items-center gap-2.5 shrink-0">
         <div className="flex-1 min-w-0">
@@ -317,32 +388,12 @@ export const ChatInterface = () => {
         }}>
           <IconMessageCirclePlus size={20} strokeWidth="2.5px"/>
         </button>
-        <DropdownMenu>
-          <DropdownMenuTrigger className="cursor-pointer focus:outline-none">
-            <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"> {/* Chat Icon */}
-              <path fill="var(--color-foreground)"
-                    d="M10.001 14.676v-.062c0-2.509 2.017-4.618 4.753-5.233C14.39 7.079 11.96 5.2 8.9 5.2C5.58 5.2 3 7.413 3 9.98c0 .969.36 1.9 1.04 2.698q.048.058.152.165a3.57 3.57 0 0 1 1.002 2.238a3.6 3.6 0 0 1 2.363-.442q.25.039.405.06A7.3 7.3 0 0 0 10 14.676m.457 1.951a9.2 9.2 0 0 1-2.753.055a19 19 0 0 1-.454-.067a1.6 1.6 0 0 0-1.08.212l-1.904 1.147a.8.8 0 0 1-.49.118a.79.79 0 0 1-.729-.851l.15-1.781a1.57 1.57 0 0 0-.439-1.223a6 6 0 0 1-.241-.262C1.563 12.855 1 11.473 1 9.979C1 6.235 4.537 3.2 8.9 3.2c4.06 0 7.403 2.627 7.85 6.008c3.371.153 6.05 2.515 6.05 5.406c0 1.193-.456 2.296-1.229 3.19q-.076.09-.195.21a1.24 1.24 0 0 0-.356.976l.121 1.423a.635.635 0 0 1-.59.68a.66.66 0 0 1-.396-.094l-1.544-.917a1.32 1.32 0 0 0-.874-.169q-.22.034-.368.053q-.475.061-.969.062c-2.694 0-4.998-1.408-5.943-3.401m6.977 1.31a3.3 3.3 0 0 1 1.675.174a3.25 3.25 0 0 1 .842-1.502q.076-.077.106-.112c.489-.565.743-1.213.743-1.883c0-1.805-1.903-3.414-4.4-3.414S12 12.81 12 14.614s1.903 3.414 4.4 3.414a6 6 0 0 0 .714-.046q.121-.015.32-.046"/>
-            </svg>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel>Chat History</DropdownMenuLabel>
-            <DropdownMenuGroup>
-              {allConversations && allConversations.length > 0 ? allConversations.map((conv) => (
-                <DropdownMenuItem key={conv.id} onClick={() => {
-                  loadConversation(conv.id)
-                  setChatTitle(conv.title)
-                  setConversationId(conv.id, conv.title)
-                }}>
-                  {conv.title}
-                </DropdownMenuItem>
-              )) : (
-                <DropdownMenuItem disabled>
-                  <span className="text-xs italic">No previous chats.</span>
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <button className="cursor-pointer" onClick={() => setShowConversations(true)}>
+          <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"> {/* Chat Icon */}
+            <path fill="var(--color-foreground)"
+                  d="M10.001 14.676v-.062c0-2.509 2.017-4.618 4.753-5.233C14.39 7.079 11.96 5.2 8.9 5.2C5.58 5.2 3 7.413 3 9.98c0 .969.36 1.9 1.04 2.698q.048.058.152.165a3.57 3.57 0 0 1 1.002 2.238a3.6 3.6 0 0 1 2.363-.442q.25.039.405.06A7.3 7.3 0 0 0 10 14.676m.457 1.951a9.2 9.2 0 0 1-2.753.055a19 19 0 0 1-.454-.067a1.6 1.6 0 0 0-1.08.212l-1.904 1.147a.8.8 0 0 1-.49.118a.79.79 0 0 1-.729-.851l.15-1.781a1.57 1.57 0 0 0-.439-1.223a6 6 0 0 1-.241-.262C1.563 12.855 1 11.473 1 9.979C1 6.235 4.537 3.2 8.9 3.2c4.06 0 7.403 2.627 7.85 6.008c3.371.153 6.05 2.515 6.05 5.406c0 1.193-.456 2.296-1.229 3.19q-.076.09-.195.21a1.24 1.24 0 0 0-.356.976l.121 1.423a.635.635 0 0 1-.59.68a.66.66 0 0 1-.396-.094l-1.544-.917a1.32 1.32 0 0 0-.874-.169q-.22.034-.368.053q-.475.061-.969.062c-2.694 0-4.998-1.408-5.943-3.401m6.977 1.31a3.3 3.3 0 0 1 1.675.174a3.25 3.25 0 0 1 .842-1.502q.076-.077.106-.112c.489-.565.743-1.213.743-1.883c0-1.805-1.903-3.414-4.4-3.414S12 12.81 12 14.614s1.903 3.414 4.4 3.414a6 6 0 0 0 .714-.046q.121-.015.32-.046"/>
+          </svg>
+        </button>
       </div>
 
       <Separator/>
