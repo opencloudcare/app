@@ -1,11 +1,13 @@
-import React, {useEffect, useMemo, useState} from 'react'
+import React, {useEffect, useMemo, useRef, useState} from 'react'
 import {
   IconAlertTriangle,
+  IconCheck,
   IconEye,
   IconFile,
   IconFileTypeDocx,
   IconFileTypePdf,
   IconFolder,
+  IconFolderPlus,
   IconHome,
   IconLoader2,
   IconPhoto, IconReload,
@@ -75,7 +77,6 @@ function FileTypeIcon({type, size = 18}: { type: FileEntry['fileType'], size?: n
   }
 }
 
-// TODO: Make files draggable to folders and make a better way to create a new folder. File management system.
 export function FileExplorer() {
   const [storageList, setStorageList] = useState<S3Object[]>([])
   const [fileListLoading, setFileListLoading] = useState(false)
@@ -89,6 +90,14 @@ export function FileExplorer() {
   const [previewEntry, setPreviewEntry] = useState<FileEntry | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [user, setUser] = useState<User | null>(null)
+
+  const [showNewFolder, setShowNewFolder] = useState(false)
+  const [newFolderName, setNewFolderName] = useState("")
+  const [creatingFolder, setCreatingFolder] = useState(false)
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null)
+  const [dragOverBreadcrumb, setDragOverBreadcrumb] = useState<'home' | number | null>(null)
+  const [movingKeys, setMovingKeys] = useState<Set<string>>(new Set())
+  const newFolderInputRef = useRef<HTMLInputElement>(null)
 
   const userPrefix = user ? `${user.id}/documents/` : ''
 
@@ -108,11 +117,16 @@ export function FileExplorer() {
   }, [])
 
   useEffect(() => {
+    if (showNewFolder) setTimeout(() => newFolderInputRef.current?.focus(), 0)
+  }, [showNewFolder])
+
+  useEffect(() => {
     if (user) fetchFileList()
   }, [user])
 
 
   const fetchFileList = () => {
+    console.log("GETTING THE LIST")
     setFileListLoading(true)
     if (!user) return
     fetch(`${import.meta.env.VITE_BACKEND_URL}/api/storage/list/${encodeURIComponent(user.id)}`, {credentials: 'include'})
@@ -166,7 +180,98 @@ export function FileExplorer() {
       method: 'DELETE',
       credentials: 'include'
     })
+  }
 
+  const handleCreateFolder = async () => {
+    const name = newFolderName.trim().replace(/\/+/g, '')
+    if (!name || !user) return
+    const normalizedPrefix = currentPath === '/'
+      ? userPrefix
+      : currentPath.startsWith('/') ? currentPath.slice(1) : currentPath
+    const key = `${normalizedPrefix}${name}/`
+    setCreatingFolder(true)
+    try {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/storage/folder`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({key}),
+      })
+      if (!res.ok) toast.error("Failed to create folder")
+      else {
+        setNewFolderName("")
+        setShowNewFolder(false)
+        fetchFileList()
+      }
+    } finally {
+      setCreatingFolder(false)
+    }
+  }
+
+  const handleDrop = async (targetFolder: FileEntry, e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOverKey(null)
+    const raw = e.dataTransfer.getData('application/x-opencare-s3file')
+    if (!raw) return
+    const entry: FileEntry = JSON.parse(raw)
+    const destKey = `${targetFolder.fullKey}${entry.name}`
+    if (destKey === entry.fullKey) return
+    setMovingKeys(prev => new Set(prev).add(entry.fullKey))
+    try {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/storage/move`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({sourceKey: entry.fullKey, destKey}),
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        toast.error(error.message ?? "Failed to move file")
+      } else {
+        setDeletedKeys(prev => new Set(prev).add(entry.fullKey))
+        fetchFileList()
+      }
+    } finally {
+      setMovingKeys(prev => {
+        const next = new Set(prev)
+        next.delete(entry.fullKey)
+        return next
+      })
+    }
+  }
+
+  const handleDropOnBreadcrumb = async (crumbIndex: 'home' | number, e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOverBreadcrumb(null)
+    const raw = e.dataTransfer.getData('application/x-opencare-s3file')
+    if (!raw) return
+    const entry: FileEntry = JSON.parse(raw)
+    const targetFolder = crumbIndex === 'home'
+      ? userPrefix
+      : userPrefix + breadcrumbs.slice(0, (crumbIndex as number) + 1).join('/') + '/'
+    const destKey = `${targetFolder}${entry.name}`
+    if (destKey === entry.fullKey) return
+    setMovingKeys(prev => new Set(prev).add(entry.fullKey))
+    try {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/storage/move`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({sourceKey: entry.fullKey, destKey}),
+      })
+      if (!res.ok) {
+        toast.error("Failed to move file")
+      } else {
+        setDeletedKeys(prev => new Set(prev).add(entry.fullKey))
+        fetchFileList()
+      }
+    } finally {
+      setMovingKeys(prev => {
+        const next = new Set(prev)
+        next.delete(entry.fullKey)
+        return next
+      })
+    }
   }
 
   const uploadFile = async (file: File) => {
@@ -187,7 +292,8 @@ export function FileExplorer() {
       }
     )
     if (!response.ok) {
-      toast.error("Failed to upload file")
+      const error = await response.json()
+      toast.error(error.message ??  "Failed to upload file")
     }
   }
 
@@ -258,7 +364,10 @@ export function FileExplorer() {
             <BreadcrumbItem>
               <BreadcrumbLink
                 onClick={() => setCurrentPath("/")}
-                className="flex items-center gap-1 cursor-pointer"
+                onDragOver={e => { e.preventDefault(); setDragOverBreadcrumb('home') }}
+                onDragLeave={() => setDragOverBreadcrumb(null)}
+                onDrop={e => handleDropOnBreadcrumb('home', e)}
+                className={`flex items-center gap-1 cursor-pointer rounded px-1 transition-colors ${dragOverBreadcrumb === 'home' ? 'bg-amber-400/20 text-amber-500' : ''}`}
               >
                 <IconHome size={14}/>
                 Files
@@ -273,7 +382,10 @@ export function FileExplorer() {
                   ) : (
                     <BreadcrumbLink
                       onClick={() => navigateToCrumb(i)}
-                      className="cursor-pointer"
+                      onDragOver={e => { e.preventDefault(); setDragOverBreadcrumb(i) }}
+                      onDragLeave={() => setDragOverBreadcrumb(null)}
+                      onDrop={e => handleDropOnBreadcrumb(i, e)}
+                      className={`cursor-pointer rounded px-1 transition-colors ${dragOverBreadcrumb === i ? 'bg-amber-400/20 text-amber-500' : ''}`}
                     >
                       {crumb}
                     </BreadcrumbLink>
@@ -288,6 +400,14 @@ export function FileExplorer() {
           <IconReload size={14} />
         </button>
 
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => { setShowNewFolder(v => !v); setNewFolderName("") }}
+        >
+          <IconFolderPlus size={14}/>
+          New Folder
+        </Button>
         <Button
           variant="outline"
           size="sm"
@@ -354,6 +474,30 @@ export function FileExplorer() {
         </div>
       )}
 
+      {/* New folder input */}
+      {showNewFolder && (
+        <div className="flex items-center gap-2 px-1">
+          <IconFolder size={16} className="shrink-0 text-amber-400"/>
+          <Input
+            ref={newFolderInputRef}
+            value={newFolderName}
+            onChange={e => setNewFolderName(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') handleCreateFolder()
+              if (e.key === 'Escape') { setShowNewFolder(false); setNewFolderName("") }
+            }}
+            placeholder="Folder name"
+            className="h-7 text-xs max-w-52"
+          />
+          <Button size="icon-sm" variant="ghost" onClick={handleCreateFolder} disabled={creatingFolder || !newFolderName.trim()}>
+            {creatingFolder ? <IconLoader2 size={14} className="animate-spin"/> : <IconCheck size={14}/>}
+          </Button>
+          <Button size="icon-sm" variant="ghost" onClick={() => { setShowNewFolder(false); setNewFolderName("") }}>
+            <IconX size={14}/>
+          </Button>
+        </div>
+      )}
+
       {/* File table */}
       <div className="flex-1 overflow-y-auto rounded-xl border border-border">
 
@@ -382,8 +526,13 @@ export function FileExplorer() {
             {entries.map(entry => (
               <div
                 key={entry.fullKey}
-                className={`grid grid-cols-[1fr_90px_100px_72px] px-4 py-2.5 items-center hover:bg-muted/30 transition-colors group border-b border-border/50 last:border-0 ${entry.type === 'file' ? 'cursor-grab active:cursor-grabbing active:opacity-60' : ''}`}
+                className={`grid grid-cols-[1fr_90px_100px_72px] px-4 py-2.5 items-center hover:bg-muted/30 transition-colors group border-b border-border/50 last:border-0
+                  ${entry.type === 'file' ? (movingKeys.has(entry.fullKey) ? 'opacity-40 pointer-events-none' : 'cursor-grab active:cursor-grabbing active:opacity-60') : ''}
+                  ${entry.type === 'folder' && dragOverKey === entry.fullKey ? 'bg-amber-400/10 ring-1 ring-inset ring-amber-400/40' : ''}`}
                 draggable={entry.type === 'file'}
+                onDragOver={entry.type === 'folder' ? (e) => { e.preventDefault(); setDragOverKey(entry.fullKey) } : undefined}
+                onDragLeave={entry.type === 'folder' ? () => setDragOverKey(null) : undefined}
+                onDrop={entry.type === 'folder' ? (e) => handleDrop(entry, e) : undefined}
                 onDragStart={entry.type === 'file' ? (e) => {
                   const item = document.createElement('div')
                   const iconHTML = renderToStaticMarkup(<FileTypeIcon type={entry.fileType} />)
