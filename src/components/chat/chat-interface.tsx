@@ -284,7 +284,7 @@ export const ChatInterface = () => {
       })
       fetchConversations() // refetch the conversation -> update list
     }
-  }, [message, messages, files, s3Files, user])
+  }, [message, files, s3Files, user, searchWeb, setConversationId, aiModel, fetchConversations])
 
 
   // Send message by pressing the enter key (filter out enter + shift)
