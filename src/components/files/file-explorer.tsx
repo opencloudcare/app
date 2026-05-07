@@ -6,9 +6,11 @@ import {
   IconFileTypeDocx,
   IconFileTypePdf,
   IconFolder,
+  IconFolderPlus,
   IconHome,
   IconLoader2,
-  IconPhoto, IconReload,
+  IconPhoto,
+  IconReload,
   IconTrash,
   IconUpload,
   IconX,
@@ -24,6 +26,20 @@ import {
 import {InputFile} from "@/components/ui/input-file.tsx";
 import {Button} from "@/components/ui/button.tsx";
 import {Input} from "@/components/ui/input.tsx";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog.tsx";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip.tsx";
 import type {User} from "better-auth";
 import {toast} from "sonner";
 import {renderToStaticMarkup} from "react-dom/server";
@@ -75,13 +91,11 @@ function FileTypeIcon({type, size = 18}: { type: FileEntry['fileType'], size?: n
   }
 }
 
-// TODO: Make files draggable to folders and make a better way to create a new folder. File management system.
 export function FileExplorer() {
   const [storageList, setStorageList] = useState<S3Object[]>([])
   const [fileListLoading, setFileListLoading] = useState(false)
   const [currentPath, setCurrentPath] = useState<string>("/")
-  const [showUpload, setShowUpload] = useState(false)
-  const [uploadSubfolder, setUploadSubfolder] = useState("")
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
   const [uploadQueue, setUploadQueue] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
   const [deletedKeys, setDeletedKeys] = useState<Set<string>>(new Set())
@@ -89,6 +103,9 @@ export function FileExplorer() {
   const [previewEntry, setPreviewEntry] = useState<FileEntry | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [user, setUser] = useState<User | null>(null)
+  const [newFolderDialogOpen, setNewFolderDialogOpen] = useState(false)
+  const [newFolderName, setNewFolderName] = useState("")
+  const [creatingFolder, setCreatingFolder] = useState(false)
 
   const userPrefix = user ? `${user.id}/documents/` : ''
 
@@ -169,14 +186,37 @@ export function FileExplorer() {
 
   }
 
+  const handleCreateFolder = async () => {
+    const name = newFolderName.trim().replace(/\/+/g, '')
+    if (!name || !user) return
+    const normalizedPrefix = currentPath === '/'
+      ? userPrefix
+      : currentPath.startsWith('/') ? currentPath.slice(1) : currentPath
+    const key = `${normalizedPrefix}${name}/`
+    setCreatingFolder(true)
+    try {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/storage/folder`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({key}),
+      })
+      if (!res.ok) toast.error("Failed to create folder")
+      else {
+        setNewFolderName("")
+        setNewFolderDialogOpen(false)
+        fetchFileList()
+      }
+    } finally {
+      setCreatingFolder(false)
+    }
+  }
+
   const uploadFile = async (file: File) => {
     const normalizedPrefix = currentPath === '/'
       ? userPrefix
       : currentPath.startsWith('/') ? currentPath.slice(1) : currentPath
-    const subfolder = uploadSubfolder.trim().replace(/\/+$/, '')
-    const key = subfolder
-      ? `${normalizedPrefix}${subfolder}/${file.name}`
-      : `${normalizedPrefix}${file.name}`
+    const key = `${normalizedPrefix}${file.name}`
     const response = await fetch(
       `${import.meta.env.VITE_BACKEND_URL}/api/storage/upload?key=${encodeURIComponent(key)}`,
       {
@@ -187,7 +227,8 @@ export function FileExplorer() {
       }
     )
     if (!response.ok) {
-      toast.error("Failed to upload file")
+      const error = await response.json()
+      toast.error(error.message ?? "Failed to upload file")
     }
   }
 
@@ -199,8 +240,7 @@ export function FileExplorer() {
     }
     setUploading(false)
     setUploadQueue([])
-    setUploadSubfolder("")
-    setShowUpload(false)
+    setUploadDialogOpen(false)
     fetchFileList()
   }
 
@@ -248,10 +288,12 @@ export function FileExplorer() {
     return parseEntries(visible, currentPath)
   }, [storageList, currentPath, deletedKeys])
 
+  const currentFolderLabel = displayPath ? `/${displayPath}` : '/'
+
   return (
     <div className="flex flex-col flex-1 px-6 pb-6 gap-4 max-h-[calc(100vh-40px)]">
 
-      {/* Breadcrumb + Upload button */}
+      {/* Breadcrumb + toolbar */}
       <div className="flex items-center justify-between pt-2">
         <Breadcrumb>
           <BreadcrumbList>
@@ -283,76 +325,41 @@ export function FileExplorer() {
             ))}
           </BreadcrumbList>
         </Breadcrumb>
-        <div className="inline-flex items-center gap-4">
-        <button className="cursor-pointer" onClick={fetchFileList}>
-          <IconReload size={14} />
-        </button>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowUpload(v => !v)}
-        >
-          <IconUpload size={14}/>
-          Upload
-        </Button>
-        </div>
-      </div>
-
-      {/* Upload area */}
-      {showUpload && (
-        <div className="flex flex-col gap-3 p-5 rounded-xl border border-dashed bg-muted/20">
-          {/* Destination row */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground shrink-0">
-              {displayPath ? `/${displayPath}` : '/'}
-            </span>
-            <Input
-              value={uploadSubfolder}
-              onChange={(e) => setUploadSubfolder(e.target.value)}
-              placeholder="subfolder (optional)"
-              className="h-7 text-xs"
-            />
-          </div>
-
-          <div className="flex items-start gap-4">
-            <InputFile onFilesSelect={setUploadQueue}/>
-
-            {/* Queued file list */}
-            {uploadQueue.length > 0 && (
-              <div className="flex flex-col flex-1 gap-1 min-w-0">
-                <span
-                  className="text-xs text-muted-foreground mb-1">{uploadQueue.length} file{uploadQueue.length !== 1 ? 's' : ''} queued</span>
-                <div className="flex flex-col gap-1 max-h-28 overflow-y-auto">
-                  {uploadQueue.map((f, i) => (
-                    <div key={i}
-                         className="flex items-center justify-between gap-2 px-2 py-1 rounded-lg bg-muted/50 text-xs">
-                      <span className="truncate">{f.name}</span>
-                      <button
-                        onClick={() => setUploadQueue(prev => prev.filter((_, j) => j !== i))}
-                        className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <IconX size={12}/>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <Button
-                  size="sm"
-                  className="mt-1"
-                  onClick={handleUploadAll}
-                  disabled={uploading}
-                >
-                  {uploading
-                    ? <><IconLoader2 size={14} className="animate-spin"/> Uploading...</>
-                    : <><IconUpload size={14}/> Upload {uploadQueue.length} file{uploadQueue.length !== 1 ? 's' : ''}</>
+        <TooltipProvider delayDuration={600}>
+          <div className="inline-flex items-center gap-0.5">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon-sm" onClick={fetchFileList} disabled={fileListLoading}>
+                  {fileListLoading
+                    ? <IconLoader2 size={15} className="animate-spin"/>
+                    : <IconReload size={15}/>
                   }
                 </Button>
-              </div>
-            )}
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Refresh</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon-sm" onClick={() => setNewFolderDialogOpen(true)}>
+                  <IconFolderPlus size={15}/>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">New folder</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon-sm" onClick={() => setUploadDialogOpen(true)}>
+                  <IconUpload size={15}/>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Upload files</TooltipContent>
+            </Tooltip>
           </div>
-        </div>
-      )}
+        </TooltipProvider>
+      </div>
 
       {/* File table */}
       <div className="flex-1 overflow-y-auto rounded-xl border border-border">
@@ -484,6 +491,96 @@ export function FileExplorer() {
           {entries.filter(e => e.type === 'folder').length} folder{entries.filter(e => e.type === 'folder').length !== 1 ? 's' : ''}
         </p>
       )}
+
+      {/* Upload dialog */}
+      <Dialog
+        open={uploadDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) setUploadQueue([])
+          setUploadDialogOpen(open)
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Upload files</DialogTitle>
+            <DialogDescription>
+              Files will be added to <span className="font-medium text-foreground">{currentFolderLabel}</span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-3">
+            <InputFile className="w-full" onFilesSelect={setUploadQueue}/>
+
+            {uploadQueue.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted-foreground">
+                  {uploadQueue.length} file{uploadQueue.length !== 1 ? 's' : ''} queued
+                </span>
+                <div className="flex flex-col gap-1 max-h-36 overflow-y-auto">
+                  {uploadQueue.map((f, i) => (
+                    <div key={i} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-muted/50 text-xs">
+                      <span className="truncate">{f.name}</span>
+                      <button
+                        onClick={() => setUploadQueue(prev => prev.filter((_, j) => j !== i))}
+                        className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <IconX size={12}/>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter showCloseButton>
+            <Button onClick={handleUploadAll} disabled={uploading || uploadQueue.length === 0}>
+              {uploading
+                ? <><IconLoader2 size={14} className="animate-spin"/> Uploading…</>
+                : <><IconUpload size={14}/> Upload {uploadQueue.length > 0 ? `${uploadQueue.length} file${uploadQueue.length !== 1 ? 's' : ''}` : 'files'}</>
+              }
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New folder dialog */}
+      <Dialog
+        open={newFolderDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) setNewFolderName("")
+          setNewFolderDialogOpen(open)
+        }}
+      >
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>New folder</DialogTitle>
+            <DialogDescription>
+              Inside <span className="font-medium text-foreground">{currentFolderLabel}</span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <Input
+            autoFocus
+            value={newFolderName}
+            onChange={e => setNewFolderName(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') handleCreateFolder()
+              if (e.key === 'Escape') setNewFolderDialogOpen(false)
+            }}
+            placeholder="Folder name"
+          />
+
+          <DialogFooter showCloseButton>
+            <Button onClick={handleCreateFolder} disabled={creatingFolder || !newFolderName.trim()}>
+              {creatingFolder
+                ? <><IconLoader2 size={14} className="animate-spin"/> Creating…</>
+                : 'Create folder'
+              }
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Preview modal */}
       {previewEntry && previewUrl && (

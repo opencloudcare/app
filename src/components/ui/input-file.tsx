@@ -3,6 +3,7 @@ import {IconUpload, IconPhoto, IconX, IconFile, IconFileTypePdf} from "@tabler/i
 
 interface InputFileProps {
   onFilesSelect: (files: File[]) => void
+  className?: string
 }
 
 export function getFileIcon(name: string) {
@@ -16,7 +17,7 @@ export function getFileIcon(name: string) {
   return <IconFile size={24} className="text-muted-foreground" />
 }
 
-export const InputFile = ({onFilesSelect}: InputFileProps) => {
+export const InputFile = ({onFilesSelect, className}: InputFileProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [dragging, setDragging] = useState(false)
@@ -60,6 +61,7 @@ export const InputFile = ({onFilesSelect}: InputFileProps) => {
           ? 'border-foreground bg-muted'
           : 'border-border hover:border-foreground/40 hover:bg-muted/50'
         }
+        ${className ?? ''}
       `}
     >
       <input
