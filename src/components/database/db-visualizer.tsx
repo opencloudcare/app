@@ -104,7 +104,7 @@ type GroupKey = keyof typeof GROUPS
 function getGroup(tableName: string): GroupKey {
   if (["user", "session", "account", "verification"].includes(tableName)) return "auth"
   if (["conversation", "message", "message_file"].includes(tableName)) return "chat"
-  if (["user_preferences", "hidden_data"].includes(tableName)) return "profile"
+  if (["user_preferences", "hidden_data", "health_profile"].includes(tableName)) return "profile"
   if (["web_search"].includes(tableName)) return "search"
   return "other"
 }
